@@ -1,9 +1,9 @@
 #pragma once
 #include <ll/api/mod/Mod.h>
 
-namespace my_mod {
-class MyMod;
-MyMod&          getInstance();
+namespace modapi {
+class ModApi;
+ModApi&         getInstance();
 ll::mod::Mod&   getSelfMod();
 ll::io::Logger& getLogger();
-} // namespace my_mod
+} // namespace modapi

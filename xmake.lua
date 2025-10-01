@@ -3,32 +3,37 @@ add_rules("mode.debug", "mode.release")
 add_repositories("liteldev-repo https://github.com/LiteLDev/xmake-repo.git")
 add_repositories("groupmountain-repo https://github.com/GroupMountain/xmake-repo.git")
 
-add_requires("levilamina", {configs = {target_type = "server"}})
-add_requires("levibuildscript")
-add_requires("gmlib")
+add_requires("levilamina 1.5.2", {configs = {target_type = "server"}})
+add_requires("levibuildscript 0.5.1")
+add_requires("gmlib 1.5.0")
 
 if not has_config("vs_runtime") then
     set_runtimes("MD")
 end
 
-target("my-mod")
+target("ModApi")
     add_rules("@levibuildscript/linkrule")
     add_rules("@levibuildscript/modpacker")
     add_cxflags(
-        "/EHa",
+        "/EHsc",
         "/utf-8",
-        "/W4",
+        "/W4", 
         "/w44265",
         "/w44289",
-        "/w44296",
+        "/w44296", 
         "/w45263",
         "/w44738",
-        "/w45204"
+        "/w45204",
+        "/O2",
+        "/Ob3",
+        "/GR-",
+        "/Zo-"
     )
     add_defines(
         "NOMINMAX",
         "UNICODE",
-        "_HAS_CXX23=1"
+        "_HAS_CXX23=1",
+        "MODAPI_EXPORTS"
     )
     add_packages(
         "levilamina",
@@ -39,6 +44,6 @@ target("my-mod")
     set_kind("shared")
     set_languages("c++20")
     set_symbols("debug")
-    add_headerfiles("src/**.h")
     add_files("src/**.cpp")
-    add_includedirs("src")
+    add_includedirs("src", "include")
+    add_headerfiles("src/**.h", "include/**.h")
