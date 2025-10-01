@@ -1,0 +1,13 @@
+{
+    "name": "${modName}",
+    "entry": "${modFile}",
+    "version": "${modVersion}",
+    "type": "native",
+    "author": "",
+    "description": "",
+    "dependencies": [
+        {
+            "name": "GMLIB"
+        }
+    ]
+}
