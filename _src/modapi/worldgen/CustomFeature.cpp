@@ -1,6 +1,6 @@
 
-#include <gmlib/mod/worldgen/FeatureRegistry.h>
-#include <gmlib/mod/worldgen/ICustomFeature.h>
+#include <modapi/worldgen/FeatureRegistry.h>
+#include <modapi/worldgen/ICustomFeature.h>
 
 
 #include <ll/api/memory/Hook.h>

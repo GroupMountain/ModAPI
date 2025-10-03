@@ -40,7 +40,7 @@ public:
     ~Impl() = default;
 };
 
-AddonsLoader::AddonsLoader() : mImpl(std::make_unique<Impl>()) {}
+AddonsLoader::AddonsLoader() : pImpl(std::make_unique<Impl>()) {}
 AddonsLoader::~AddonsLoader() = default;
 
 AddonsLoader& AddonsLoader::getInstance() {
@@ -65,14 +65,14 @@ void AddonsLoader::addCustomPackPath(std::filesystem::path const& path) {
         throw std::runtime_error("path is not a directory");
     }
 
-    mImpl->mAllResourcePath.insert(path);
+    pImpl->mAllResourcePath.insert(path);
     for (auto& entry : std::filesystem::directory_iterator(path)) {
         if (!entry.is_regular_file()) continue;
         auto zip = std::make_shared<gmlib::zip_utils::Unzipper>(entry.path());
         if (!zip->isOpen() || !anyOfZip(zip)) continue;
-        mImpl->mDecompressThread.emplace_back([zip, name = entry.path().stem().string(), this]() -> void {
-            auto path = mImpl->mResourceCachePath / name;
-            mImpl->mAllResourcePath.insert(path);
+        pImpl->mDecompressThread.emplace_back([zip, name = entry.path().stem().string(), this]() -> void {
+            auto path = pImpl->mResourceCachePath / name;
+            pImpl->mAllResourcePath.insert(path);
             zip->extractAll(path, true);
         });
     }
@@ -96,7 +96,7 @@ LL_TYPE_INSTANCE_HOOK(
 ) {
     auto* result = origin(pack);
     if (auto* manifest = &getManifest(); manifest && manifest->mPackOrigin == PackOrigin::Test) {
-        AddonsLoader::getInstance().mImpl->mPackListCache.push_back(pack.mManifest->mIdentity->asString());
+        AddonsLoader::getInstance().pImpl->mPackListCache.push_back(pack.mManifest->mIdentity->asString());
     }
     return result;
 }
@@ -109,7 +109,7 @@ LL_STATIC_HOOK(
     std::istream&                                                                 fileStream,
     gsl::not_null<Bedrock::NonOwnerPointer<IResourcePackRepository const>> const& repo
 ) {
-    auto& impl                   = AddonsLoader::getInstance().mImpl;
+    auto& impl                   = AddonsLoader::getInstance().pImpl;
     auto  resourcePackRepository = ll::service::getResourcePackRepository();
 
     for (auto& thread : impl->mDecompressThread) {
@@ -141,7 +141,7 @@ LL_TYPE_INSTANCE_HOOK(
     &ResourcePackRepository::_initialize,
     void
 ) {
-    auto& impl              = AddonsLoader::getInstance().mImpl;
+    auto& impl              = AddonsLoader::getInstance().pImpl;
     auto* compositePack     = const_cast<CompositePackSource*>(getWorldPackSource());
     auto& packSourceFactory = getPackSourceFactory();
 

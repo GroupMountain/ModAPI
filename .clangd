@@ -6,6 +6,7 @@ Diagnostics:
     - "-Wc++11-narrowing"
     - "-Wc++2b-extensions"
     - "-Wmicrosoft-cast"
+    - "-Winconsistent-missing-override"
 CompileFlags:
   Add:
     - "-ferror-limit=0"

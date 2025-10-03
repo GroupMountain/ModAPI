@@ -1,5 +1,5 @@
 #pragma once
-#include "gmlib/Macros.h"
+#include "modapi/Macros.h"
 #include "mc/world/level/BlockPos.h"
 #include "mc/world/level/dimension/DimensionHeightRange.h"
 class Block;

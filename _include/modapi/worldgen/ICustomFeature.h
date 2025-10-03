@@ -1,6 +1,6 @@
 #pragma once
-#include "gmlib/Macros.h"
-#include "gmlib/mod/worldgen/BlockHelper.h"
+#include "modapi/Macros.h"
+#include "modapi/worldgen/BlockHelper.h"
 #include <mc/world/level/levelgen/feature/IFeature.h>
 #include <optional>
 

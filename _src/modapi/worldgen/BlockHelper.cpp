@@ -1,4 +1,4 @@
-#include "gmlib/mod/worldgen/BlockHelper.h"
+#include "modapi/worldgen/BlockHelper.h"
 #include "mc/world/level/BlockSource.h"
 #include "mc/world/level/ChunkBlockPos.h"
 #include "mc/world/level/chunk/LevelChunk.h"

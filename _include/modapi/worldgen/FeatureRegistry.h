@@ -1,5 +1,5 @@
 #pragma once
-#include <gmlib/mod/worldgen/ICustomFeature.h>
+#include <modapi/worldgen/ICustomFeature.h>
 #include <ll/api/coro/Generator.h>
 #include <memory>
 #include <nlohmann/json.hpp>

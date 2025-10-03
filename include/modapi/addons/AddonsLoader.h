@@ -11,7 +11,7 @@ namespace modapi::inline addons {
 class AddonsLoader {
 private:
     struct Impl;
-    std::unique_ptr<Impl> mImpl;
+    std::unique_ptr<Impl> pImpl;
     AddonsLoader();
     ~AddonsLoader();
 
