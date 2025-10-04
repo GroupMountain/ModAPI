@@ -51,17 +51,20 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: ModApi-${{ github.sha }}
+          path: bin/
 
       - name: Copy additional files to mod directory
-        run: cp CHANGELOG.md dll/
+        run: cp CHANGELOG.md bin/dll/
 
       - name: Create Mod Package
         run: |
-          cd dll
-          zip -r ../ModApi-windows-x64.zip *
+          cd bin/dll
+          zip -r ../../ModApi-windows-x64.zip *
 
       - name: Create SDK Package
-        run: zip -r ModApi-SDK.zip include/ lib/
+        run: |
+          cd bin/
+          zip -r ../ModApi-SDK.zip include/ lib/
 
       - name: Extract release notes
         id: extract-release-notes
@@ -73,4 +76,4 @@ jobs:
           body: ${{ steps.extract-release-notes.outputs.release_notes }}
           files: |
             *.zip
-            pdb/*.pdb
+            bin/pdb/*.pdb
