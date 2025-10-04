@@ -5,6 +5,7 @@
 class Random;
 namespace modapi::inline worldgen {
 class ICustomFeature : public IFeature {
+public:
     MOD_API ICustomFeature();
     MOD_API virtual ~ICustomFeature() override;
     MOD_API virtual std::optional<BlockPos> place(IFeature::PlacementContext const&) const override;

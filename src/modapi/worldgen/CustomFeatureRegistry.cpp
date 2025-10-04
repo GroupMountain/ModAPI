@@ -10,14 +10,19 @@
 #include <mc/world/level/levelgen/feature/gamerefs_feature/GameRefsFeature.h>
 #include <mc/world/level/levelgen/feature/registry/FeatureRegistry.h>
 #include <mc/world/level/levelgen/feature/registry/VanillaFeatures.h>
-
 #include <utility>
 
 
 namespace modapi::inline worldgen {
-ll::DenseMap<std::string, std::string>               rules;
-ll::DenseMap<std::string, std::unique_ptr<IFeature>> features;
-FeatureRegistry*                                     registry;
+struct GlobalData {
+    ll::DenseMap<std::string, std::string>               rules;
+    ll::DenseMap<std::string, std::unique_ptr<IFeature>> features;
+    FeatureRegistry*                                     registry;
+    static GlobalData&                                   getInstance() {
+        static auto instance = std::make_unique<GlobalData>();
+        return *instance;
+    }
+};
 std::string
 generateFeatureRule(std::string_view identifier, std::string_view placesFeature, std::string_view placementPass) {
     return std::format(
@@ -28,7 +33,7 @@ generateFeatureRule(std::string_view identifier, std::string_view placesFeature,
     );
 }
 void insertRule(std::string_view identifier, std::string_view placesFeature, std::string_view placementPass) {
-    rules[identifier] = generateFeatureRule(identifier, placesFeature, placementPass);
+    GlobalData::getInstance().rules[identifier] = generateFeatureRule(identifier, placesFeature, placementPass);
 }
 LL_TYPE_INSTANCE_HOOK(
     AutomaticFeatureRule_ParseAndInsertUnsortedHook,
@@ -46,7 +51,7 @@ LL_TYPE_INSTANCE_HOOK(
     bool                                                                                      isBasePack
 ) {
     unhook();
-    for (auto& [identifier, data_] : rules) {
+    for (auto& [identifier, data_] : GlobalData::getInstance().rules) {
         origin(
             identifier.substr(identifier.find(':') + 1),
             std::move(data_),
@@ -71,8 +76,8 @@ LL_TYPE_INSTANCE_HOOK(
     return res;
 }
 LL_TYPE_INSTANCE_HOOK(FeatureRegistryCtorHook, HookPriority::Normal, FeatureRegistry, &FeatureRegistry::$ctor, void*) {
-    auto res = origin();
-    registry = (decltype(registry))res;
+    auto res                           = origin();
+    GlobalData::getInstance().registry = (decltype(GlobalData::getInstance().registry))res;
     return res;
 }
 struct RuleFeature : public IFeature {
@@ -86,8 +91,8 @@ struct RuleFeature : public IFeature {
         auto                         pos = context.mUnke9f615.as<BlockPos>();
         std::shared_ptr<BlockHelper> helper{};
         static auto                  feature = [](std::string_view name) {
-            auto idx = registry->mFeatureLookupMap->at({name});
-            return registry->mFeatureRegistry->at(idx).get();
+            auto idx = GlobalData::getInstance().registry->mFeatureLookupMap->at({name});
+            return GlobalData::getInstance().registry->mFeatureRegistry->at(idx).get();
         }(mName);
         if (LocalData::getInstance().mBlockSource) {
             helper = std::make_shared<BlockHelper>(LocalData::getInstance().mBlockSource);
@@ -102,15 +107,15 @@ struct RuleFeature : public IFeature {
     }
     bool isValidPlacement(::std::string const& pass) override {
         static auto feature = [](std::string_view name) {
-            auto idx = registry->mFeatureLookupMap->at({name});
-            return registry->mFeatureRegistry->at(idx).get();
+            auto idx = GlobalData::getInstance().registry->mFeatureLookupMap->at({name});
+            return GlobalData::getInstance().registry->mFeatureRegistry->at(idx).get();
         }(mName);
         return feature->isValidPlacement(pass);
     }
     void upgradeFormat(::SemVersion const& ver) override {
         static auto feature = [](std::string_view name) {
-            auto idx = registry->mFeatureLookupMap->at({name});
-            return registry->mFeatureRegistry->at(idx).get();
+            auto idx = GlobalData::getInstance().registry->mFeatureLookupMap->at({name});
+            return GlobalData::getInstance().registry->mFeatureRegistry->at(idx).get();
         }(mName);
         return feature->upgradeFormat(ver);
     }
@@ -125,7 +130,7 @@ LL_STATIC_HOOK(
     class BaseGameVersion const& baseGameVersion,
     class Experiments const&     experiments
 ) {
-    for (auto& [identifier, feature] : features) {
+    for (auto& [identifier, feature] : GlobalData::getInstance().features) {
         registry._registerFeature(identifier, std::move(feature));
     }
     origin(registry, baseGameVersion, experiments);
@@ -142,7 +147,7 @@ struct CustomFeatureRegistry::Impl {
 CustomFeatureRegistry::CustomFeatureRegistry() { pImpl = std::make_unique<Impl>(); }
 CustomFeatureRegistry&
 CustomFeatureRegistry::registerFeature(std::string_view identifier, std::unique_ptr<IFeature> feature) {
-    features.emplace(identifier, std::move(feature));
+    GlobalData::getInstance().features.emplace(identifier, std::move(feature));
     return *this;
 }
 CustomFeatureRegistry& CustomFeatureRegistry::registerFeatureRule(
@@ -152,11 +157,14 @@ CustomFeatureRegistry& CustomFeatureRegistry::registerFeatureRule(
 ) {
     static uint64 idx{0};
     auto          ruleId = std::format("gmlib:interal_{}", idx++);
-    features.emplace(ruleId, std::unique_ptr<IFeature>(new RuleFeature{std::move(rule), identifier}));
+    GlobalData::getInstance().features.emplace(
+        ruleId,
+        std::unique_ptr<IFeature>(new RuleFeature{std::move(rule), identifier})
+    );
     for (auto& pass : passes) {
         auto passId = std::format("{}_{}", ruleId, pass);
         auto rule   = generateFeatureRule(passId, ruleId, pass);
-        rules.emplace(passId, ruleId);
+        GlobalData::getInstance().rules.emplace(passId, ruleId);
     }
     return *this;
 }
