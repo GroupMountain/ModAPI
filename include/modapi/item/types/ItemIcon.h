@@ -11,7 +11,7 @@ public:
 
 public:
     MOD_NDAPI ItemIcon();
-    MOD_NDAPI explicit ItemIcon(const char* texture);
+    MOD_NDAPI explicit ItemIcon(char const* texture);
     MOD_NDAPI explicit ItemIcon(std::string_view texture);
 
     MOD_API void add(std::string_view type, std::string_view texture);

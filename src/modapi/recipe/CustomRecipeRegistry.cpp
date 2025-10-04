@@ -39,7 +39,7 @@ public:
 bool operator==(RecipeNetId const& lhs, RecipeNetId const& rhs) { return lhs.mRawId == rhs.mRawId; }
 
 NetworkItemInstanceDescriptor::NetworkItemInstanceDescriptor(class NetworkItemInstanceDescriptor const&)      = default;
-NetworkItemInstanceDescriptor& NetworkItemInstanceDescriptor::operator=(const NetworkItemInstanceDescriptor&) = default;
+NetworkItemInstanceDescriptor& NetworkItemInstanceDescriptor::operator=(NetworkItemInstanceDescriptor const&) = default;
 
 namespace modapi::inline recipe {
 
@@ -58,9 +58,9 @@ struct CustomRecipeRegistry::Impl {
     std::vector<std::function<std::unique_ptr<ICustomRecipe>()>> mPendingRecipes;
     ll::memory::HookRegistrar<RegisterRecipesHook>               mHook;
 
-    const ::SemVersion& getFormatVersion() const { return CurrentSemVersion; }
+    ::SemVersion const& getFormatVersion() const { return CurrentSemVersion; }
 
-    const ::MinEngineVersion& getMinEngineVersion() const {
+    ::MinEngineVersion const& getMinEngineVersion() const {
         static auto min_engine_version = ::MinEngineVersion(getFormatVersion());
         return min_engine_version;
     }

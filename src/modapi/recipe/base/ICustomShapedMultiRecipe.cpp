@@ -60,7 +60,7 @@ CustomShapedMultiRecipeBase::assemble(::CraftingContainer& container, ::Crafting
         } catch (...) {}
         ll::thread::ServerThreadExecutor::getDefault().executeAfter(
             [] {
-                ll::service::getLevel()->forEachPlayer([](const Player& pl) -> bool {
+                ll::service::getLevel()->forEachPlayer([](Player const& pl) -> bool {
                     const_cast<Player&>(pl).refreshInventory();
                     return true;
                 });

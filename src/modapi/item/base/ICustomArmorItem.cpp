@@ -153,7 +153,7 @@ bool ICustomArmorItem::
 
 ::std::string ICustomArmorItem::getCooldownCategory() const { return {}; }
 
-const HashedString& ICustomArmorItem::getCooldownType() const {
+HashedString const& ICustomArmorItem::getCooldownType() const {
     if (!getCooldownCategory().empty()) {
         return pImpl->mCooldownCategory;
     }

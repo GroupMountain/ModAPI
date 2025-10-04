@@ -95,7 +95,7 @@ public:
 
     MOD_API virtual std::string getInteractButtonText() const;
 
-    MOD_API const HashedString& getCooldownType() const override;
+    MOD_API HashedString const& getCooldownType() const override;
 
     MOD_API int getArmorValue() const override;
 

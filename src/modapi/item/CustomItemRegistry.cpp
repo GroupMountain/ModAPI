@@ -54,8 +54,8 @@ LL_STATIC_HOOK(
     void,
     ::cereal::ReflectionCtx& ctx,
     ::ItemRegistryRef        itemRegistry,
-    const ::BaseGameVersion& baseGameVersion,
-    const ::Experiments&     experiments
+    ::BaseGameVersion const& baseGameVersion,
+    ::Experiments const&     experiments
 ) {
     origin(ctx, itemRegistry, baseGameVersion, experiments);
     auto& manager     = *CustomItemRegistry::getInstance().pImpl;
@@ -144,7 +144,7 @@ CustomItemRegistry& CustomItemRegistry::_registerItem(std::function<std::unique_
 
                         template <typename T, typename C>
                         int addEnumValues(
-                            const std::string& enumName,
+                            std::string const& enumName,
                             const std::vector<std::pair<std::string, T>>& values
                         );
                     };
@@ -205,9 +205,9 @@ LL_TYPE_INSTANCE_HOOK(
     &::Spawner::$spawnItem,
     ::ItemActor*,
     ::BlockSource&     region,
-    const ::ItemStack& inst,
+    ::ItemStack const& inst,
     ::Actor*           spawner,
-    const ::Vec3&      pos,
+    ::Vec3 const&      pos,
     int                throwTime
 ) {
     auto itemActor = origin(region, inst, spawner, pos, throwTime);

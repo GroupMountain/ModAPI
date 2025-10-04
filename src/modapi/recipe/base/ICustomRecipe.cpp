@@ -4,7 +4,7 @@
 
 namespace modapi::inline recipe {
 
-ICustomRecipe::Ingredient::Ingredient(const char* type)
+ICustomRecipe::Ingredient::Ingredient(char const* type)
 : pImpl(std::make_unique<Impl>(type, RecipeIngredientType::Item, 1)) {}
 
 ICustomRecipe::Ingredient::Ingredient(std::string_view type, RecipeIngredientType ingredientType, uint8_t count)

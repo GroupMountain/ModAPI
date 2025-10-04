@@ -23,7 +23,7 @@ public:
         struct Impl;
         std::unique_ptr<Impl> pImpl;
 
-        MOD_NDAPI explicit Ingredient(const char* type);
+        MOD_NDAPI explicit Ingredient(char const* type);
         MOD_NDAPI explicit Ingredient(
             ::std::string_view   type,
             RecipeIngredientType ingredientType = RecipeIngredientType::Item,

@@ -1,21 +1,21 @@
 #include "modapi/worldgen/BlockHelper.h"
-#include "mc/world/level/BlockSource.h"
-#include "mc/world/level/ChunkBlockPos.h"
-#include "mc/world/level/chunk/LevelChunk.h"
-#include "mc/world/level/dimension/Dimension.h"
-
+#include <mc/world/level/BlockSource.h>
+#include <mc/world/level/ChunkBlockPos.h>
+#include <mc/world/level/chunk/LevelChunk.h>
+#include <mc/world/level/dimension/Dimension.h>
 
 namespace modapi::inline worldgen {
-namespace BlockHelperDetails {
-bool check(const BlockSource* source, const BlockPos& pos) {
+
+namespace block_helper::details {
+bool check(BlockSource const* source, BlockPos const& pos) {
     return source->hasChunksAt(pos, 0, false) && pos.y < source->mDimension.mHeightRange->mMax
         && pos.y >= source->mDimension.mHeightRange->mMin;
 }
-bool check(const LevelChunk* chunk, const BlockPos& pos) {
+bool check(LevelChunk const* chunk, BlockPos const& pos) {
     return pos.x - chunk->mPosition->x * 16 < 16 && pos.z - chunk->mPosition->z * 16 < 16
         && pos.y < chunk->mDimension.mHeightRange->mMax && pos.y >= chunk->mDimension.mHeightRange->mMin;
 }
-void setBlock(BlockSource* source, const BlockPos& pos, const Block& block, uchar layer, int updateFlags) {
+void setBlock(BlockSource* source, BlockPos const& pos, Block const& block, uchar layer, int updateFlags) {
     if (!check(source, pos)) throw std::runtime_error("invalid position.");
     switch (layer) {
     case 0:
@@ -28,7 +28,7 @@ void setBlock(BlockSource* source, const BlockPos& pos, const Block& block, ucha
         throw std::out_of_range("layer out of range.");
     }
 }
-void setBlock(LevelChunk* chunk, const BlockPos& pos, const Block& block, uchar layer, int) {
+void setBlock(LevelChunk* chunk, BlockPos const& pos, Block const& block, uchar layer, int) {
     if (!check(chunk, pos)) throw std::runtime_error("invalid position.");
     const auto chunkPos = ChunkBlockPos{pos, chunk->mDimension.mHeightRange->mMin};
     switch (layer) {
@@ -42,7 +42,7 @@ void setBlock(LevelChunk* chunk, const BlockPos& pos, const Block& block, uchar 
         throw std::out_of_range("layer out of range.");
     }
 }
-const Block& getBlock(const BlockSource* source, const BlockPos& pos, uchar layer) {
+Block const& getBlock(BlockSource const* source, BlockPos const& pos, uchar layer) {
     if (!check(source, pos)) throw std::runtime_error("invalid position.");
     switch (layer) {
     case 0:
@@ -53,7 +53,7 @@ const Block& getBlock(const BlockSource* source, const BlockPos& pos, uchar laye
         throw std::out_of_range("layer out of range.");
     }
 }
-const Block& getBlock(const LevelChunk* chunk, const BlockPos& pos, uchar layer) {
+Block const& getBlock(LevelChunk const* chunk, BlockPos const& pos, uchar layer) {
     if (!check(chunk, pos)) throw std::runtime_error("invalid position.");
     const auto chunkPos = ChunkBlockPos{pos, chunk->mDimension.mHeightRange->mMin};
     switch (layer) {
@@ -65,7 +65,7 @@ const Block& getBlock(const LevelChunk* chunk, const BlockPos& pos, uchar layer)
         throw std::out_of_range("layer out of range.");
     }
 }
-} // namespace BlockHelperDetails
+} // namespace block_helper::details
 struct BlockHelper::Impl : std::variant<BlockSource*, LevelChunk*> {
     using std::variant<BlockSource*, LevelChunk*>::variant;
 };
@@ -73,23 +73,23 @@ BlockHelper::BlockHelper(BlockSource* source) : pImpl(std::make_unique<Impl>(sou
 BlockHelper::BlockHelper(LevelChunk* chunk) : pImpl(std::make_unique<Impl>(chunk)) {}
 BlockHelper::~BlockHelper() = default;
 
-void BlockHelper::setBlock(const BlockPos& pos, const Block& block, uchar layer, int updateFlags) {
+void BlockHelper::setBlock(BlockPos const& pos, Block const& block, uchar layer, int updateFlags) {
     return std::visit(
-        [&](auto* sourceOrChunk) { BlockHelperDetails::setBlock(sourceOrChunk, pos, block, layer, updateFlags); },
+        [&](auto* sourceOrChunk) { block_helper::details::setBlock(sourceOrChunk, pos, block, layer, updateFlags); },
         *pImpl
     );
 }
-const Block& BlockHelper::getBlock(const BlockPos& pos, uchar layer) const {
-    return std::visit<const Block&>(
-        [&](const auto* sourceOrChunk) -> const Block& {
-            return BlockHelperDetails::getBlock(sourceOrChunk, pos, layer);
+Block const& BlockHelper::getBlock(BlockPos const& pos, uchar layer) const {
+    return std::visit<Block const&>(
+        [&](auto const* sourceOrChunk) -> Block const& {
+            return block_helper::details::getBlock(sourceOrChunk, pos, layer);
         },
         *pImpl
     );
 }
 DimensionHeightRange BlockHelper::getHeightRange() const {
     return std::visit(
-        [](const auto* sourceOrChunk) -> DimensionHeightRange { return sourceOrChunk->mDimension.mHeightRange; },
+        [](auto const* sourceOrChunk) -> DimensionHeightRange { return sourceOrChunk->mDimension.mHeightRange; },
         *pImpl
     );
 }
@@ -99,7 +99,7 @@ MOD_API LevelChunk* BlockHelper::get<LevelChunk, void>() {
     return nullptr;
 }
 template <>
-MOD_API const LevelChunk* BlockHelper::get<LevelChunk, void>() const {
+MOD_API LevelChunk const* BlockHelper::get<LevelChunk, void>() const {
     if (auto res = std::get_if<LevelChunk*>(&*pImpl)) return *res;
     return nullptr;
 }
@@ -109,7 +109,7 @@ MOD_API BlockSource* BlockHelper::get<BlockSource, void>() {
     return nullptr;
 }
 template <>
-MOD_API const BlockSource* BlockHelper::get<BlockSource, void>() const {
+MOD_API BlockSource const* BlockHelper::get<BlockSource, void>() const {
     if (auto res = std::get_if<BlockSource*>(&*pImpl)) return *res;
     return nullptr;
 }

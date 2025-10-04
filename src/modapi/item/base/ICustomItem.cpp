@@ -120,7 +120,7 @@ bool ICustomItem::isValidRepairItem(::ItemStackBase const&, ::ItemStackBase cons
 
 ::std::string ICustomItem::getCooldownCategory() const { return {}; }
 
-const HashedString& ICustomItem::getCooldownType() const {
+HashedString const& ICustomItem::getCooldownType() const {
     if (!getCooldownCategory().empty()) {
         return pImpl->mCooldownCategory;
     }

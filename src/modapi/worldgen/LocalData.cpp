@@ -2,19 +2,21 @@
 #include <ll/api/memory/Hook.h>
 #include <mc/world/level/biome/components/BiomeDecorationFeature.h>
 #include <mc/world/level/biome/systems/BiomeDecorationSystem.h>
+
 namespace modapi::inline worldgen {
+
 LL_STATIC_HOOK(
     BiomeDecorationSystemDecorateBiomeHook,
     HookPriority::Normal,
     &::BiomeDecorationSystem::decorateBiome,
     bool,
-    ::LevelChunk&                               lc,
-    ::BlockSource&                              source,
-    ::Random&                                   random,
-    ::gsl::span<::BiomeDecorationFeature const> featureList,
-    ::std::string const&                        pass,
-    ::Biome const*                              biome,
-    ::IPreliminarySurfaceProvider const&        preliminarySurfaceProvider
+    LevelChunk&                             lc,
+    BlockSource&                            source,
+    Random&                                 random,
+    gsl::span<BiomeDecorationFeature const> featureList,
+    std::string const&                      pass,
+    Biome const*                            biome,
+    IPreliminarySurfaceProvider const&      preliminarySurfaceProvider
 ) {
     modapi::LocalData::getInstance().mBlockSource = &source;
     modapi::LocalData::getInstance().mRandom      = &random;
@@ -27,26 +29,29 @@ LL_STATIC_HOOK(
     HookPriority::Normal,
     &::BiomeDecorationSystem::decorateLargeFeature,
     void,
-    ::Biome const&       biome,
-    ::LevelChunk&        lc,
-    ::BlockVolumeTarget& target,
-    ::Random&            random,
-    ::ChunkPos const&    pos,
-    ::std::string const& pass
+    Biome const&       biome,
+    LevelChunk&        lc,
+    BlockVolumeTarget& target,
+    Random&            random,
+    ChunkPos const&    pos,
+    std::string const& pass
 ) {
     modapi::LocalData::getInstance().mBlockSource = nullptr;
     modapi::LocalData::getInstance().mRandom      = &random;
     modapi::LocalData::getInstance().mLevelChunk  = &lc;
     origin(biome, lc, target, random, pos, pass);
 }
+
 void LocalData::init() {
     static auto hook = std::make_unique<ll::memory::HookRegistrar<
         BiomeDecorationSystemDecorateBiomeHook,
         BiomeDecorationSystemDecorateLargeFeatureHook>>();
 }
+
 LocalData& LocalData::getInstance() {
     init();
     static thread_local LocalData instance;
     return instance;
 }
+
 } // namespace modapi::inline worldgen

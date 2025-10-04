@@ -13,9 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Complete the separation of the ModApi library @zimuya4153
 
-### Removed
+### Changed
 
-- Temporarily delete the worldgen api @zimuya4153
+- Refactor the worldgen api @killcerr
 
 [Unreleased]: http://github.com/GroupMountain/ModApi-Release/compare/v0.1.0...HEAD
 [0.1.0]: http://github.com/GroupMountain/ModApi-Release/releases/tag/v0.1.0

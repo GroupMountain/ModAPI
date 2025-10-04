@@ -12,7 +12,6 @@
 #include <mc/world/level/levelgen/feature/registry/VanillaFeatures.h>
 #include <utility>
 
-
 namespace modapi::inline worldgen {
 struct GlobalData {
     ll::DenseMap<std::string, std::string>               rules;
@@ -152,7 +151,7 @@ CustomFeatureRegistry::registerFeature(std::string_view identifier, std::unique_
 }
 CustomFeatureRegistry& CustomFeatureRegistry::registerFeatureRule(
     std::string_view                identifier,
-    const std::vector<std::string>& passes,
+    std::vector<std::string> const& passes,
     CustomFeatureRule               rule
 ) {
     static uint64 idx{0};
@@ -163,8 +162,7 @@ CustomFeatureRegistry& CustomFeatureRegistry::registerFeatureRule(
     );
     for (auto& pass : passes) {
         auto passId = std::format("{}_{}", ruleId, pass);
-        auto rule   = generateFeatureRule(passId, ruleId, pass);
-        GlobalData::getInstance().rules.emplace(passId, ruleId);
+        GlobalData::getInstance().rules.emplace(passId, generateFeatureRule(passId, ruleId, pass));
     }
     return *this;
 }
