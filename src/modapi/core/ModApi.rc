@@ -19,9 +19,9 @@ BEGIN
             VALUE "CompanyName", "GroupMountain"
             VALUE "FileDescription", "Group Mountain Mod API"
             VALUE "FileVersion", MODAPI_FILE_VERSION_STRING
-            VALUE "InternalName", "ModApi.dll"
-            VALUE "OriginalFilename", "ModApi.dll"
-            VALUE "ProductName", "ModApi"
+            VALUE "InternalName", "ModAPI.dll"
+            VALUE "OriginalFilename", "ModAPI.dll"
+            VALUE "ProductName", "ModAPI"
             VALUE "ProductVersion", MODAPI_FILE_VERSION_STRING
         END
     END

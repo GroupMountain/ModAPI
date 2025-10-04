@@ -75,7 +75,7 @@ rule("linkrule")
     end)
 rule_end()
 
-target("ModApi")
+target("ModAPI")
     add_rules("linkrule")
     add_cxflags(
         "/EHsc",
@@ -127,14 +127,14 @@ target("ModApi")
     after_build(function (target)
         local target_dir = path.join(os.projectdir(), "bin")
         if os.exists(target_dir) then os.rmdir(target_dir) end
-        os.cp(target:targetfile(), path.join(target_dir, "dll", "ModApi", "ModApi.dll"))
-        os.cp(target:symbolfile(), path.join(target_dir, "pdb", "ModApi.pdb"))
-        os.cp(path.join(target:targetdir(), target:name() .. ".lib"), path.join(target_dir, "lib", "ModApi.lib"))
+        os.cp(target:targetfile(), path.join(target_dir, "dll", "ModAPI", "ModAPI.dll"))
+        os.cp(target:symbolfile(), path.join(target_dir, "pdb", "ModAPI.pdb"))
+        os.cp(path.join(target:targetdir(), target:name() .. ".lib"), path.join(target_dir, "lib", "ModAPI.lib"))
         import("scripts.generate-manifest", { rootdir = os.projectdir() }).generate_manifest(
-            path.join(target_dir, "dll", "ModApi", "manifest.json"),
+            path.join(target_dir, "dll", "ModAPI", "manifest.json"),
             {
-                name = "ModApi",
-                entry = "ModApi.dll",
+                name = "ModAPI",
+                entry = "ModAPI.dll",
                 version = import("scripts.get-version-info").get_version_info().version_str,
                 author = "GroupMountain",
                 description = "Group Mountain Mod API",

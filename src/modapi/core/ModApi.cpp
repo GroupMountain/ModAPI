@@ -1,4 +1,4 @@
-#include "modapi/core/ModApi.h"
+#include "modapi/core/ModAPI.h"
 #include "modapi/Version.h"
 #include "modapi/core/Gloabl.h"
 #include "modapi/core/RandomColorLogFormatter.h"
@@ -11,14 +11,14 @@
 
 namespace modapi::inline core {
 
-ModApi& ModApi::getInstance() {
-    static ModApi instance;
+ModAPI& ModAPI::getInstance() {
+    static ModAPI instance;
     return instance;
 }
 
-bool ModApi::load() {
+bool ModAPI::load() {
     if (ll::getGamingStatus() == ll::GamingStatus::Running) {
-        getLogger().error("It is prohibited to load ModApi mod when the server is running.");
+        getLogger().error("It is prohibited to load ModAPI mod when the server is running.");
         return false;
     }
     getLogger().setFormatter(ll::makePolymorphic<RandomColorLogFormatter>(
@@ -31,17 +31,17 @@ bool ModApi::load() {
     return true;
 }
 
-bool ModApi::enable() { return true; }
+bool ModAPI::enable() { return true; }
 
-bool ModApi::disable() {
+bool ModAPI::disable() {
     if (ll::getGamingStatus() != ll::GamingStatus::Stopping) {
-        getLogger().error("It is prohibited to disable ModApi mod when the server is not stopped.");
+        getLogger().error("It is prohibited to disable ModAPI mod when the server is not stopped.");
         return false;
     }
     return true;
 }
 
-void ModApi::printLogo() {
+void ModAPI::printLogo() {
     std::vector<std::string> output = {
         R"(  __  __               _                      _  )",
         R"( |  \/  |             | |     /\             (_) )",
@@ -52,7 +52,7 @@ void ModApi::printLogo() {
         R"(                                     | |         )",
         R"(                                     |_|         )",
         R"(                                                 )",
-        fmt::format("ModApi v{0}", getSelf().getManifest().version->to_string()),
+        fmt::format("ModAPI v{0}", getSelf().getManifest().version->to_string()),
         fmt::format("Author: {0}", "GroupMountain")
     };
     auto center = std::ranges::max_element(output, {}, &std::string::size)->size();
@@ -61,7 +61,7 @@ void ModApi::printLogo() {
     }
 }
 
-void ModApi::correctManifest() {
+void ModAPI::correctManifest() {
     auto& manifest       = const_cast<ll::mod::Manifest&>(getSelf().getManifest());
     manifest.type        = "native";
     manifest.version     = ll::data::Version{MODAPI_FILE_VERSION_STRING};
@@ -78,10 +78,10 @@ void ModApi::correctManifest() {
     );
 }
 
-ModApi&         getInstance() { return ModApi::getInstance(); }
+ModAPI&         getInstance() { return ModAPI::getInstance(); }
 ll::mod::Mod&   getSelfMod() { return getInstance().getSelf(); }
 ll::io::Logger& getLogger() { return getSelfMod().getLogger(); }
 
 } // namespace modapi::inline core
 
-LL_REGISTER_MOD(modapi::ModApi, modapi::ModApi::getInstance());
+LL_REGISTER_MOD(modapi::ModAPI, modapi::ModAPI::getInstance());

@@ -3,12 +3,12 @@
 
 namespace modapi::inline core {
 
-class ModApi {
+class ModAPI {
 
 public:
-    static ModApi& getInstance();
+    static ModAPI& getInstance();
 
-    ModApi() : mSelf(*ll::mod::NativeMod::current()) {}
+    ModAPI() : mSelf(*ll::mod::NativeMod::current()) {}
 
     [[nodiscard]] ll::mod::NativeMod& getSelf() const { return mSelf; }
 

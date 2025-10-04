@@ -34,7 +34,7 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ModApi-${{ github.sha }}
+          name: ModAPI-${{ github.sha }}
           path: bin/
 
   upload-to-release:
@@ -50,7 +50,7 @@ jobs:
       - name: Download bin artifact
         uses: actions/download-artifact@v4
         with:
-          name: ModApi-${{ github.sha }}
+          name: ModAPI-${{ github.sha }}
           path: bin/
 
       - name: Copy additional files to mod directory
@@ -59,12 +59,12 @@ jobs:
       - name: Create Mod Package
         run: |
           cd bin/dll
-          zip -r ../../ModApi-windows-x64.zip *
+          zip -r ../../ModAPI-windows-x64.zip *
 
       - name: Create SDK Package
         run: |
           cd bin/
-          zip -r ../ModApi-SDK.zip include/ lib/
+          zip -r ../ModAPI-SDK.zip include/ lib/
 
       - name: Extract release notes
         id: extract-release-notes

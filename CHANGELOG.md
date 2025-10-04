@@ -11,11 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Complete the separation of the ModApi library @zimuya4153
+- Complete the separation of the ModAPI library @zimuya4153
 
 ### Changed
 
 - Refactor the worldgen api @killcerr
 
-[Unreleased]: http://github.com/GroupMountain/ModApi-Release/compare/v0.1.0...HEAD
-[0.1.0]: http://github.com/GroupMountain/ModApi-Release/releases/tag/v0.1.0
+[Unreleased]: http://github.com/GroupMountain/ModAPI-Release/compare/v0.1.0...HEAD
+[0.1.0]: http://github.com/GroupMountain/ModAPI-Release/releases/tag/v0.1.0
