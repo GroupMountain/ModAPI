@@ -67,11 +67,11 @@ void ModApi::correctManifest() {
     manifest.version     = ll::data::Version{MODAPI_FILE_VERSION_STRING};
     manifest.author      = "GroupMountain";
     manifest.description = "Group Mountain Mod API";
-    manifest.extraInfo->clear();
-    manifest.dependencies->clear();
-    manifest.optionalDependencies->clear();
-    manifest.conflicts->clear();
-    manifest.loadBefore->clear();
+    manifest.extraInfo.reset();
+    manifest.dependencies.reset();
+    manifest.optionalDependencies.reset();
+    manifest.conflicts.reset();
+    manifest.loadBefore.reset();
     gmlib::file_utils::writeFile(
         getSelf().getModDir() / "manifest.json",
         ll::reflection::serialize<nlohmann::ordered_json>(manifest)->dump(4)
