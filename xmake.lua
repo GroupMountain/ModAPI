@@ -109,6 +109,39 @@ target("ModApi")
     set_kind("shared")
     set_languages("c++20")
     set_symbols("debug")
-    add_files("src/**.cpp")
-    add_includedirs("src", "include")
-    add_headerfiles("src/**.h", "include/**.h")
+    add_files("src/**.cpp", "src/**.rc")
+    add_includedirs("src", "include", "$(builddir)/config")
+    add_headerfiles("src/**.h", "include/**.h", "$(builddir)/config/**.h")
+    add_configfiles("$(projectdir)/include/(**.*.in)")
+    set_configdir("$(builddir)/config")
+
+    on_load(function (target)
+        local version_info = import("scripts.get-version-info").get_version_info()
+        target:set("configvar", "MODAPI_VERSION_MAJOR", version_info.major)
+        target:set("configvar", "MODAPI_VERSION_MINOR", version_info.minor)
+        target:set("configvar", "MODAPI_VERSION_PATCH", version_info.patch)
+        if version_info.prerelease then
+            target:set("configvar", "MODAPI_VERSION_PRERELEASE", version_info.prerelease)
+        end
+    end)
+
+    after_build(function (target)
+        local target_dir = path.join(os.projectdir(), "bin")
+        if os.exists(target_dir) then os.rmdir(target_dir) end
+        os.cp(target:targetfile(), path.join(target_dir, "dll", "ModApi", "ModApi.dll"))
+        os.cp(target:symbolfile(), path.join(target_dir, "pdb", "ModApi.pdb"))
+        os.cp(path.join(target:targetdir(), target:name() .. ".lib"), path.join(target_dir, "lib", "ModApi.lib"))
+        import("scripts.generate-manifest", { rootdir = os.projectdir() }).generate_manifest(
+            path.join(target_dir, "dll", "ModApi", "manifest.json"),
+            {
+                name = "ModApi",
+                entry = "ModApi.dll",
+                version = import("scripts.get-version-info").get_version_info().version_str,
+                author = "GroupMountain",
+                description = "Group Mountain Mod API"
+            }
+        )
+        os.mkdir(path.join(target_dir, "include"))
+        os.cp(path.join(os.projectdir(), "include", "**.h"), path.join(target_dir, "include"), { rootdir = path.join(os.projectdir(), "include") })
+        os.cp(path.join(os.projectdir(), "build", "config", "**.h"), path.join(target_dir, "include"), { rootdir = path.join(os.projectdir(), "build", "config") })
+    end)

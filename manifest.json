@@ -1,7 +1,0 @@
-{
-    "name": "${modName}",
-    "entry": "${modFile}",
-    "version": "${modVersion}",
-    "type": "native",
-    "author": "GroupMountain"
-}
