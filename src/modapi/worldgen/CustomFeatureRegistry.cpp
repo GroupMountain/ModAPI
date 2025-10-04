@@ -154,10 +154,14 @@ CustomFeatureRegistry& CustomFeatureRegistry::registerFeatureRule(
     auto          ruleId = std::format("gmlib:interal_{}", idx++);
     features.emplace(ruleId, std::unique_ptr<IFeature>(new RuleFeature{std::move(rule), identifier}));
     for (auto& pass : passes) {
-        auto passId   = std::format("gmlib:interal_{}", idx++);
-        auto rule     = generateFeatureRule(passId, ruleId, pass);
-        rules[passId] = rule;
+        auto passId = std::format("{}_{}", ruleId, pass);
+        auto rule   = generateFeatureRule(passId, ruleId, pass);
+        rules.emplace(passId, ruleId);
     }
     return *this;
+}
+CustomFeatureRegistry& CustomFeatureRegistry::getInstance() {
+    static auto instance = std::make_unique<CustomFeatureRegistry>();
+    return *instance;
 }
 } // namespace modapi::inline worldgen
