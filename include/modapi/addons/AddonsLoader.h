@@ -3,7 +3,6 @@
 #include <filesystem>
 #include <mc/deps/core/resource/PackType.h>
 
-enum class PackType : schar;
 class ResourcePackRepository;
 
 namespace modapi::inline addons {

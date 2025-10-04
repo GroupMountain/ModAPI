@@ -137,7 +137,8 @@ target("ModApi")
                 entry = "ModApi.dll",
                 version = import("scripts.get-version-info").get_version_info().version_str,
                 author = "GroupMountain",
-                description = "Group Mountain Mod API"
+                description = "Group Mountain Mod API",
+                passive = true
             }
         )
         os.mkdir(path.join(target_dir, "include"))

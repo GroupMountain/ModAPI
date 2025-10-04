@@ -34,9 +34,8 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.event.repository.name }}-windows-x64-${{ github.sha }}
-          path: |
-            bin/
+          name: ModApi-${{ github.sha }}
+          path: bin/
 
   upload-to-release:
     needs:
@@ -45,26 +44,33 @@ jobs:
       contents: write
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Download Artifact
+      - name: Download bin artifact
         uses: actions/download-artifact@v4
         with:
-          name: ${{ github.event.repository.name }}-windows-x64-${{ github.sha }}
-          path: artifact
+          name: ModApi-${{ github.sha }}
 
-      - name: Copy Files
+      - name: Copy additional files to mod directory
+        run: cp CHANGELOG.md dll/
+
+      - name: Create Mod Package
         run: |
-          cp LICENSE README.md artifact/
+          cd dll
+          zip -r ../ModApi-windows-x64.zip *
 
-      - name: Compress Artifact
-        run: |
-          zip -r ../${{ github.event.repository.name }}-windows-x64.zip *
-        working-directory: artifact
+      - name: Create SDK Package
+        run: zip -r ModApi-SDK.zip include/ lib/
 
-      - name: Create Release
+      - name: Extract release notes
+        id: extract-release-notes
+        uses: ffurrer2/extract-release-notes@v2
+
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
+          body: ${{ steps.extract-release-notes.outputs.release_notes }}
           files: |
-            ${{ github.event.repository.name }}-windows-x64.zip
+            *.zip
+            pdb/*.pdb
