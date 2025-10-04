@@ -77,7 +77,6 @@ rule_end()
 
 target("ModApi")
     add_rules("linkrule")
-    add_rules("@levibuildscript/modpacker")
     add_cxflags(
         "/EHsc",
         "/utf-8",

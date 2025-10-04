@@ -2,8 +2,7 @@ function generate_manifest(output_file, info)
     local manifest = {
         entry = "",
         name = "",
-        type = "native",
-        passive = false
+        type = "native"
     }
 
     for k, v in pairs(info) do  manifest[k] = v end
@@ -15,10 +14,10 @@ function generate_manifest(output_file, info)
         type = function(v) return type(v) == "string" and v ~= "" end,
 
         -- 可选字段验证
-        passive = function(v) return type(v) == "boolean" end,
-        version = function(v) return type(v) == "string" end,
-        author = function(v) return type(v) == "string" end,
-        description = function(v) return type(v) == "string" end,
+        passive = function(v) return v == nil or type(v) == "boolean" end,
+        version = function(v) return v == nil or type(v) == "string" end,
+        author = function(v) return v == nil or type(v) == "string" end,
+        description = function(v) return v == nil or type(v) == "string" end,
 
         -- 复杂类型验证
         extraInfo = function(v)
