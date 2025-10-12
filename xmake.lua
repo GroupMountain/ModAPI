@@ -16,7 +16,7 @@ target("ModAPI")
     add_cxflags(
         "/EHsc",
         "/utf-8",
-        "/W4", 
+        "/W4",
         "/w44265",
         "/w44289",
         "/w44296", 
