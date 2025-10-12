@@ -5,6 +5,8 @@
 #include <ll/api/service/Bedrock.h>
 #include <ll/api/thread/ThreadPoolExecutor.h>
 #include <magic_enum.hpp>
+#include <mc/deps/core/debug/log/LogArea.h>
+#include <mc/deps/core/debug/log/LogLevel.h>
 #include <mc/deps/core/file/Path.h>
 #include <mc/resources/CompositePackSource.h>
 #include <mc/resources/DirectoryPackSource.h>
@@ -24,13 +26,15 @@ public:
     struct PacksCtorHook;
     struct PacksLoadHook;
     struct ResourcePackRepositoryInitHook;
+    struct FuckMultipleManifestOutput;
 
 public:
-    ll::memory::HookRegistrar<PacksCtorHook, PacksLoadHook, ResourcePackRepositoryInitHook> mHooks;
-    ll::DenseSet<std::filesystem::path>                                                     mAllResourcePath;
-    std::vector<std::string>                                                                mPackListCache;
-    std::vector<std::thread>                                                                mDecompressThread;
-    std::filesystem::path mResourceCachePath = getSelfMod().getModDir() / ".cache" / "addons";
+    ll::memory::HookRegistrar<PacksCtorHook, PacksLoadHook, ResourcePackRepositoryInitHook, FuckMultipleManifestOutput>
+                                        mHooks;
+    ll::DenseSet<std::filesystem::path> mAllResourcePath;
+    std::vector<std::string>            mPackListCache;
+    std::vector<std::thread>            mDecompressThread;
+    std::filesystem::path               mResourceCachePath = getSelfMod().getModDir() / ".cache" / "addons";
 
 public:
     Impl() {
@@ -51,10 +55,7 @@ AddonsLoader& AddonsLoader::getInstance() {
 void AddonsLoader::addCustomPackPath(std::filesystem::path const& path) {
     constexpr static auto anyOfZip = [](auto&& zip) -> bool {
         for (auto& entry : *zip) {
-            if (entry.mName.ends_with("manifest.json")
-                && std::find(entry.mName.begin() + 1, entry.mName.end(), '/') == entry.mName.end()) {
-                return true;
-            }
+            if (entry.mName.ends_with("/manifest.json")) return true;
         }
         return false;
     };
@@ -81,14 +82,14 @@ void AddonsLoader::addCustomPackPath(std::filesystem::path const& path) {
 void AddonsLoader::setCustomPackPath(ResourcePackRepository& repo, std::filesystem::path const& path, PackType type) {
     const_cast<CompositePackSource*>(repo.getWorldPackSource())
         ->mPackSources->push_back(
-            &repo.getPackSourceFactory().createDirectoryPackSource(Core::Path(path), type, PackOrigin::Test, 0)
+            &repo.getPackSourceFactory().createDirectoryPackSource(Core::Path(path), type, PackOrigin::Test, false)
         );
     repo.refreshPacks();
 }
 
 LL_TYPE_INSTANCE_HOOK(
     AddonsLoader::Impl::PacksCtorHook,
-    ll::memory::HookPriority::Normal,
+    HookPriority::Normal,
     ResourcePack,
     &ResourcePack::$ctor,
     void*,
@@ -103,7 +104,7 @@ LL_TYPE_INSTANCE_HOOK(
 
 LL_STATIC_HOOK(
     AddonsLoader::Impl::PacksLoadHook,
-    ll::memory::HookPriority::Normal,
+    HookPriority::Normal,
     &ResourcePackStack::deserialize,
     std::unique_ptr<ResourcePackStack>,
     std::istream&                                                                 fileStream,
@@ -127,7 +128,7 @@ LL_STATIC_HOOK(
                 resourcePackRepository->getPackSettingsFactory().getPackSettings(pack->getManifest(), std::nullopt)
             ),
             repo,
-            0
+            false
         );
     }
     impl->mPackListCache.clear();
@@ -136,7 +137,7 @@ LL_STATIC_HOOK(
 
 LL_TYPE_INSTANCE_HOOK(
     AddonsLoader::Impl::ResourcePackRepositoryInitHook,
-    ll::memory::HookPriority::Normal,
+    HookPriority::Normal,
     ResourcePackRepository,
     &ResourcePackRepository::_initialize,
     void
@@ -149,13 +150,33 @@ LL_TYPE_INSTANCE_HOOK(
         if (type != PackType::Invalid && type != PackType::Count) {
             for (auto& path : impl->mAllResourcePath) {
                 compositePack->mPackSources->push_back(
-                    &packSourceFactory.createDirectoryPackSource(Core::Path(path), type, PackOrigin::Test, 0)
+                    &packSourceFactory.createDirectoryPackSource(Core::Path(path), type, PackOrigin::Test, false)
                 );
+                refreshPacks();
             }
         }
     }
-    refreshPacks();
     return origin();
+}
+
+using namespace ll::memory_literals;
+
+LL_STATIC_HOOK(
+    AddonsLoader::Impl::FuckMultipleManifestOutput,
+    HookPriority::Normal,
+    // ContentLogHelper::_contentLog<char const (&)[135]>
+    "48 89 5C 24 ?? 48 89 74 24 ?? 57 48 83 EC ?? 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 44 24 ?? 49 8B F1 41 8B D8 8B FA"_sig,
+    void,
+    bool        logOnlyOnce,
+    LogLevel    level,
+    LogArea     area,
+    const char* message
+) {
+    constexpr static std::string_view fuckMessage =
+        "Cannot determine which pack manifest to use: Multiple manifests found at the "
+        "same directory level in the pack's folder hierarchy.";
+    if (message == fuckMessage) return;
+    origin(logOnlyOnce, level, area, message);
 }
 
 } // namespace modapi::inline addons
