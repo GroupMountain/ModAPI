@@ -39,7 +39,7 @@ LL_TYPE_INSTANCE_HOOK(
     HookPriority::Normal,
     AutomaticFeatureRules,
     &AutomaticFeatureRules::_parseAndInsertUnsorted,
-    void,
+    Puv::LoadResult<::SharedTypes::v1_21_20::AutomaticFeatureRulesData>,
     ::std::string const&        filename,
     ::std::string&&             data,
     ::MinEngineVersion const&   minEngineVersion,
@@ -60,7 +60,14 @@ LL_TYPE_INSTANCE_HOOK(
             isBasePack
         );
     }
-    origin(filename, std::forward<std::string>(data), minEngineVersion, worldRegistries, bucketedFeatures, isBasePack);
+    return origin(
+        filename,
+        std::forward<std::string>(data),
+        minEngineVersion,
+        worldRegistries,
+        bucketedFeatures,
+        isBasePack
+    );
 }
 LL_TYPE_INSTANCE_HOOK(
     ClientGenerationHook,
@@ -87,7 +94,7 @@ struct RuleFeature : public IFeature {
       mName(name) {}
     ::std::optional<::BlockPos> place(::IFeature::PlacementContext const& context) const override {
         std::optional<BlockPos>      res = std::nullopt;
-        auto                         pos = context.mUnke9f615.as<BlockPos>();
+        auto                         pos = context.mPos;
         std::shared_ptr<BlockHelper> helper{};
         static auto                  feature = [](std::string_view name) {
             auto idx = GlobalData::getInstance().registry->mFeatureLookupMap->at({name});
@@ -99,8 +106,8 @@ struct RuleFeature : public IFeature {
             helper = std::make_shared<BlockHelper>(LocalData::getInstance().mLevelChunk);
         }
         for (auto placePos : mRule(*helper, pos, *LocalData::getInstance().mRandom)) {
-            const_cast<::IFeature::PlacementContext&>(context).mUnke9f615.as<BlockPos>() = placePos;
-            res                                                                          = feature->place(context);
+            const_cast<::IFeature::PlacementContext&>(context).mPos = placePos;
+            res                                                     = feature->place(context);
         }
         return res;
     }

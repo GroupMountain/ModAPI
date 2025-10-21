@@ -37,8 +37,7 @@ HumanoidArmorItem::HumanoidArmorItem(std::string const& name, HumanoidArmorItem:
 namespace modapi::inline item {
 
 ICustomArmorItem::ICustomArmorItem(std::string const& identifier, HumanoidArmorItem::Tier armorTier)
-: HumanoidArmorItem(identifier, armorTier),
-  pImpl(std::make_unique<Impl>()) {
+: HumanoidArmorItem(identifier, armorTier) {
     mItemParseVersion = ItemVersion::DataDriven;
 }
 
@@ -151,13 +150,9 @@ bool ICustomArmorItem::
     return false;
 }
 
-::std::string ICustomArmorItem::getCooldownCategory() const { return {}; }
-
-HashedString const& ICustomArmorItem::getCooldownType() const {
-    if (!getCooldownCategory().empty()) {
-        return pImpl->mCooldownCategory;
-    }
-    return Item::getCooldownType();
+::HashedString const& ICustomArmorItem::getCooldownCategory() const {
+    static ::HashedString empty;
+    return empty;
 }
 
 std::string ICustomArmorItem::getInteractButtonText() const { return "action.interact.use"; }

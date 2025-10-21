@@ -7,13 +7,14 @@
 #include <mc/world/actor/Actor.h>
 #include <mc/world/actor/RenderParams.h>
 #include <mc/world/item/ItemStackBase.h>
+#include <mc/world/item/ItemTag.h>
 #include <mc/world/level/BlockPos.h>
 #include <mc/world/level/block/Block.h>
 
 namespace modapi::inline item {
 
 ICustomToolItem::ICustomToolItem(std::string const& identifier) : ICustomItem(identifier) {
-    addTag("minecraft:is_tool");
+    addTag(ItemTag{ItemTag{"minecraft:is_tool"}});
 }
 
 bool ICustomToolItem::isSword() const { return false; }
@@ -82,8 +83,8 @@ void ICustomToolItem::executeEvent(::ItemStackBase& item, ::std::string const& e
         anipkt.sendToClients();
         LevelSoundEventPacket lsepkt;
         lsepkt.mEventId  = ::SharedTypes::Legacy::LevelSoundEvent::ItemUseOn;
-        lsepkt.mPos      = rp.mBlockPos->operator Vec3();
-        lsepkt.mData     = rp.mBlock->mNetworkId;
+        lsepkt.mPos      = rp.mBlockPos->center();
+        lsepkt.mData     = static_cast<int>(rp.mBlock->mNetworkId);
         lsepkt.mIsGlobal = false;
         lsepkt.sendToClients();
     }
@@ -91,11 +92,11 @@ void ICustomToolItem::executeEvent(::ItemStackBase& item, ::std::string const& e
 
 void ICustomToolItem::_init() {
     ICustomItem::_init();
-    if (isSword()) addTag("minecraft:is_sword");
-    if (isAxe()) addTag("minecraft:is_axe");
-    if (isPickaxe()) addTag("minecraft:is_pickaxe");
-    if (isShovel()) addTag("minecraft:is_shovel");
-    if (isHoe()) addTag("minecraft:is_hoe");
+    if (isSword()) addTag(ItemTag{"minecraft:is_sword"});
+    if (isAxe()) addTag(ItemTag{"minecraft:is_axe"});
+    if (isPickaxe()) addTag(ItemTag{"minecraft:is_pickaxe"});
+    if (isShovel()) addTag(ItemTag{"minecraft:is_shovel"});
+    if (isHoe()) addTag(ItemTag{"minecraft:is_hoe"});
 }
 
 } // namespace modapi::inline item

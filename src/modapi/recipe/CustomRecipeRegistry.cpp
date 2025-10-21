@@ -16,6 +16,7 @@
 #include <ll/api/event/server/ServerStartedEvent.h>
 #include <ll/api/memory/Hook.h>
 #include <ll/api/service/Bedrock.h>
+#include <mc/deps/core/sem_ver/SemVersionConstant.h>
 #include <mc/deps/json/Reader.h>
 #include <mc/deps/json/Value.h>
 #include <mc/network/packet/CraftingDataPacket.h>
@@ -38,9 +39,6 @@ public:
 
 bool operator==(RecipeNetId const& lhs, RecipeNetId const& rhs) { return lhs.mRawId == rhs.mRawId; }
 
-NetworkItemInstanceDescriptor::NetworkItemInstanceDescriptor(class NetworkItemInstanceDescriptor const&)      = default;
-NetworkItemInstanceDescriptor& NetworkItemInstanceDescriptor::operator=(NetworkItemInstanceDescriptor const&) = default;
-
 namespace modapi::inline recipe {
 
 static auto CurrentSemVersion = ::SemVersion(SharedConstants::CurrentGameSemVersion());
@@ -61,7 +59,7 @@ struct CustomRecipeRegistry::Impl {
     ::SemVersion const& getFormatVersion() const { return CurrentSemVersion; }
 
     ::MinEngineVersion const& getMinEngineVersion() const {
-        static auto min_engine_version = ::MinEngineVersion(getFormatVersion());
+        static auto min_engine_version = ::MinEngineVersion::fromString(getFormatVersion().asString());
         return min_engine_version;
     }
 };

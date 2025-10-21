@@ -1,5 +1,4 @@
 #include "modapi/core/ModAPI.h"
-#include "Gloabl.h"
 #include "modapi/Version.h"
 #include "modapi/core/Gloabl.h"
 #include "modapi/core/RandomColorLogFormatter.h"

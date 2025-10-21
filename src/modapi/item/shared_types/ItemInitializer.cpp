@@ -37,18 +37,17 @@ void initCustomItem(ICustomItem& item) {
     item.mIsHiddenInCommands  = item.shouldHiddenInCommands();
     item.mFrameCount          = item.getFrameCount();
     if (item.isSmithingTemplate()) {
-        item.addTag("minecraft:transform_templates");
+        item.addTag(ItemTag{"minecraft:transform_templates"});
     }
     if (item.isSmithingTransformable()) {
-        item.addTag("minecraft:transformable_items");
+        item.addTag(ItemTag{"minecraft:transformable_items"});
     }
     if (item.isSmithingTransformMaterial()) {
-        item.addTag("minecraft:transform_materials");
+        item.addTag(ItemTag{"minecraft:transform_materials"});
     }
     if (item.isFood()) {
-        item.addTag("minecraft:is_food");
+        item.addTag(ItemTag{"minecraft:is_food"});
     }
-    (void)(item.pImpl->mCooldownCategory = ::HashedString(item.getCooldownCategory()));
     if (item.getCompostChance() > 0) {
         auto chance = item.getCompostChance();
         if (chance > 100) chance = 100;
@@ -91,26 +90,25 @@ void initCustomItem(ICustomArmorItem& item) {
     item.mIsHiddenInCommands  = item.shouldHiddenInCommands();
     item.mFrameCount          = item.getFrameCount();
     if (item.isSmithingTemplate()) {
-        item.addTag("minecraft:transform_templates");
+        item.addTag(ItemTag{"minecraft:transform_templates"});
     }
     if (item.isSmithingTransformable()) {
-        item.addTag("minecraft:transformable_items");
+        item.addTag(ItemTag{"minecraft:transformable_items"});
     }
     if (item.isSmithingTransformMaterial()) {
-        item.addTag("minecraft:transform_materials");
+        item.addTag(ItemTag{"minecraft:transform_materials"});
     }
     if (item.isFood()) {
-        item.addTag("minecraft:is_food");
+        item.addTag(ItemTag{"minecraft:is_food"});
     }
     item.mSlot                 = item.getArmorSlot();
     item.mDefense              = item.getArmorValue();
     item.mModelIndex           = item.getModelIndex();
     item.getItemDamageChance() = item.getItemDamageChance();
     if (item.isTrimAllowed()) {
-        item.addTag("minecraft:trimmable_armors");
+        item.addTag(ItemTag{"minecraft:trimmable_armors"});
     }
     item.getRepairItems() = item.getRepairItems();
-    (void)(item.pImpl->mCooldownCategory = ::HashedString(item.getCooldownCategory()));
     if (item.getCompostChance() > 0) {
         auto chance = item.getCompostChance();
         if (chance > 100) chance = 100;

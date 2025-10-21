@@ -12,7 +12,7 @@ std::optional<BlockPos> ICustomFeature::place(IFeature::PlacementContext const& 
     } else {
         helper = std::make_shared<BlockHelper>(LocalData::getInstance().mLevelChunk);
     }
-    return this->place(*helper, context.mUnke9f615.as<BlockPos>(), *LocalData::getInstance().mRandom);
+    return this->place(*helper, context.mPos, *LocalData::getInstance().mRandom);
 }
 
 } // namespace modapi::inline worldgen

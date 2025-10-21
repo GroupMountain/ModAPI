@@ -22,7 +22,7 @@ struct CustomGameRuleRegistry::Impl {
         auto rule                 = GameRule(ruleName, true);                                                          \
         rule.mShouldSave          = true;                                                                              \
         rule.mType                = ::GameRule::Type::Bool;                                                            \
-        rule.mValue->boolVal      = defaultValue;                                                                      \
+        rule.mValue               = defaultValue;                                                                      \
         rule.mAllowUseInCommand   = true;                                                                              \
         rule.mAllowUseInScripting = true;                                                                              \
         rule.mIsDefaultSet        = true;                                                                              \
@@ -40,47 +40,29 @@ LL_TYPE_INSTANCE_HOOK(RegisterRulesHook, HookPriority::Normal, GameRules, &GameR
     REGISTER_EDU_GAMERULE("codebuilder", true)
     REGISTER_EDU_GAMERULE("educloudsave", false)
     // Custom GameRules
-    for (auto& func : registry.mPendingGameRulesBool) {
+    auto registerGameRule =
+        [this]<typename T>(GameRule::Type type, std::unique_ptr<modapi::ICustomGameRule<T>> customRule) -> void {
         try {
-            auto customRule           = func();
             auto rule                 = GameRule(customRule->getIdentifier(), customRule->canBeModifiedByPlayer());
             rule.mShouldSave          = customRule->shouleSaveToDisk();
-            rule.mType                = ::GameRule::Type::Bool;
-            rule.mValue->boolVal      = customRule->getDefaultValue();
+            rule.mType                = type;
+            rule.mValue               = customRule->getDefaultValue();
             rule.mAllowUseInCommand   = customRule->allowUseInCommand();
             rule.mAllowUseInScripting = customRule->allowUseInScripting();
             rule.mIsDefaultSet        = true;
             rule.mRequiresCheats      = customRule->requiresCheats();
             mGameRules->push_back(std::move(rule));
         } catch (...) {}
+    };
+
+    for (auto& func : registry.mPendingGameRulesBool) {
+        registerGameRule(::GameRule::Type::Bool, func());
     }
     for (auto& func : registry.mPendingGameRulesInt) {
-        try {
-            auto customRule           = func();
-            auto rule                 = GameRule(customRule->getIdentifier(), customRule->canBeModifiedByPlayer());
-            rule.mShouldSave          = customRule->shouleSaveToDisk();
-            rule.mType                = ::GameRule::Type::Int;
-            rule.mValue->intVal       = customRule->getDefaultValue();
-            rule.mAllowUseInCommand   = customRule->allowUseInCommand();
-            rule.mAllowUseInScripting = customRule->allowUseInScripting();
-            rule.mIsDefaultSet        = true;
-            rule.mRequiresCheats      = customRule->requiresCheats();
-            mGameRules->push_back(std::move(rule));
-        } catch (...) {}
+        registerGameRule(GameRule::Type::Int, func());
     }
     for (auto& func : registry.mPendingGameRulesFloat) {
-        try {
-            auto customRule           = func();
-            auto rule                 = GameRule(customRule->getIdentifier(), customRule->canBeModifiedByPlayer());
-            rule.mShouldSave          = customRule->shouleSaveToDisk();
-            rule.mType                = ::GameRule::Type::Float;
-            rule.mValue->floatVal     = customRule->getDefaultValue();
-            rule.mAllowUseInCommand   = customRule->allowUseInCommand();
-            rule.mAllowUseInScripting = customRule->allowUseInScripting();
-            rule.mIsDefaultSet        = true;
-            rule.mRequiresCheats      = customRule->requiresCheats();
-            mGameRules->push_back(std::move(rule));
-        } catch (...) {}
+        registerGameRule(::GameRule::Type::Float, func());
     }
 }
 

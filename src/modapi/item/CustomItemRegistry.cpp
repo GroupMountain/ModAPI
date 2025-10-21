@@ -238,7 +238,7 @@ bool CustomItemRegistry::setFireResistant(std::string_view itemName, bool value)
 
 bool CustomItemRegistry::addTag(std::string_view itemName, std::string_view tag) {
     if (auto item = getItem(itemName)) {
-        item->addTag(::HashedString(tag));
+        item->addTag(::ItemTag(std::string{tag}));
         auto& nbt        = getAndModifyVanillaNetworkTagInfo(itemName);
         nbt["item_tags"] = ::ListTag();
         for (auto& itemTag : *item->mTags) {

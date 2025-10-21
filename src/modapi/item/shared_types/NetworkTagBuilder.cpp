@@ -159,9 +159,9 @@ std::unique_ptr<::CompoundTag> buildClientComponents(ICustomArmorItem const& ite
             {"scale_power_by_draw_duration", false}
         };
     }
-    if (item.getCooldownTime() > 0 && !item.getCooldownType().getString().empty()) {
-        builder["minecraft:cooldown"]["category"]               = item.getCooldownType().getString();
-        builder["minecraft:cooldown"]["duration"]               = (float)item.getCooldownTime() / 20.0f;
+    if (item.getCooldownDuration() > 0 && !item.getCooldownCategory().getString().empty()) {
+        builder["minecraft:cooldown"]["category"]               = item.getCooldownCategory().getString();
+        builder["minecraft:cooldown"]["duration"]               = (float)item.getCooldownDuration() / 20.0f;
         builder["minecraft:use_modifiers"]["movement_modifier"] = 0.35f;
         builder["minecraft:use_modifiers"]["use_duration"]      = (float)item.mMaxUseDuration / 20.0f;
     }
@@ -249,9 +249,9 @@ std::unique_ptr<::CompoundTag> buildClientComponents(ICustomItem const& item) {
             {"scale_power_by_draw_duration", false}
         };
     }
-    if (item.getCooldownTime() > 0 && !item.getCooldownType().getString().empty()) {
-        builder["minecraft:cooldown"]["category"]               = item.getCooldownType().getString();
-        builder["minecraft:cooldown"]["duration"]               = (float)item.getCooldownTime() / 20.0f;
+    if (item.getCooldownDuration() > 0 && !item.getCooldownCategory().getString().empty()) {
+        builder["minecraft:cooldown"]["category"]               = item.getCooldownCategory().getString();
+        builder["minecraft:cooldown"]["duration"]               = (float)item.getCooldownDuration() / 20.0f;
         builder["minecraft:use_modifiers"]["movement_modifier"] = 0.35f;
         builder["minecraft:use_modifiers"]["use_duration"]      = (float)item.mMaxUseDuration / 20.0f;
     }

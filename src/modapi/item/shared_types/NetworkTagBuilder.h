@@ -8,14 +8,6 @@
 
 namespace modapi::inline item {
 
-struct ICustomArmorItem::Impl {
-    ::HashedString mCooldownCategory;
-};
-
-struct ICustomItem::Impl {
-    ::HashedString mCooldownCategory;
-};
-
 // 此处不要自作聪明改成 enum_name 转 snake_case
 std::string buildEnchantSlot(::Enchant::Slot slot);
 

@@ -10,11 +10,13 @@
 #include <mc/deps/core/file/Path.h>
 #include <mc/resources/CompositePackSource.h>
 #include <mc/resources/DirectoryPackSource.h>
+#include <mc/resources/IRepositoryFactory.h>
 #include <mc/resources/Pack.h>
 #include <mc/resources/PackInstance.h>
 #include <mc/resources/PackManifest.h>
 #include <mc/resources/PackSettingsFactory.h>
 #include <mc/resources/PackSourceFactory.h>
+#include <mc/resources/RepositorySources.h>
 #include <mc/resources/ResourcePack.h>
 #include <mc/resources/ResourcePackRepository.h>
 #include <mc/resources/ResourcePackStack.h>
@@ -25,12 +27,19 @@ struct AddonsLoader::Impl {
 public:
     struct PacksCtorHook;
     struct PacksLoadHook;
+    struct RepositorySourcesInitHook;
     struct ResourcePackRepositoryInitHook;
     struct FuckMultipleManifestOutput;
 
 public:
-    ll::memory::HookRegistrar<PacksCtorHook, PacksLoadHook, ResourcePackRepositoryInitHook, FuckMultipleManifestOutput>
+    ll::memory::HookRegistrar<
+        PacksCtorHook,
+        PacksLoadHook,
+        RepositorySourcesInitHook,
+        ResourcePackRepositoryInitHook,
+        FuckMultipleManifestOutput>
                                         mHooks;
+    ResourcePackRepository*             mResourcePackRepository;
     ll::DenseSet<std::filesystem::path> mAllResourcePath;
     std::vector<std::string>            mPackListCache;
     std::vector<std::thread>            mDecompressThread;
@@ -80,8 +89,8 @@ void AddonsLoader::addCustomPackPath(std::filesystem::path const& path) {
 }
 
 void AddonsLoader::setCustomPackPath(ResourcePackRepository& repo, std::filesystem::path const& path, PackType type) {
-    const_cast<CompositePackSource*>(repo.getWorldPackSource())
-        ->mPackSources->push_back(
+    const_cast<CompositePackSource&>(*repo.mSources->mWorldPackSource)
+        .mPackSources->push_back(
             &repo.getPackSourceFactory().createDirectoryPackSource(Core::Path(path), type, PackOrigin::Test, false)
         );
     repo.refreshPacks();
@@ -93,11 +102,11 @@ LL_TYPE_INSTANCE_HOOK(
     ResourcePack,
     &ResourcePack::$ctor,
     void*,
-    Pack& pack
+    gsl::not_null<std::shared_ptr<Pack>> pack
 ) {
-    auto* result = origin(pack);
-    if (auto* manifest = &getManifest(); manifest && manifest->mPackOrigin == PackOrigin::Test) {
-        AddonsLoader::getInstance().pImpl->mPackListCache.push_back(pack.mManifest->mIdentity->asString());
+    auto* result = origin(std::move(pack));
+    if (auto& manifest = mPack->mManifest; manifest && manifest->mPackOrigin == PackOrigin::Test) {
+        AddonsLoader::getInstance().pImpl->mPackListCache.push_back(pack->mManifest->mIdentity->asString());
     }
     return result;
 }
@@ -108,7 +117,8 @@ LL_STATIC_HOOK(
     &ResourcePackStack::deserialize,
     std::unique_ptr<ResourcePackStack>,
     std::istream&                                                                 fileStream,
-    gsl::not_null<Bedrock::NonOwnerPointer<IResourcePackRepository const>> const& repo
+    gsl::not_null<Bedrock::NonOwnerPointer<IResourcePackRepository const>> const& repo,
+    std::optional<std::string>                                                    levelId
 ) {
     auto& impl                   = AddonsLoader::getInstance().pImpl;
     auto  resourcePackRepository = ll::service::getResourcePackRepository();
@@ -117,15 +127,15 @@ LL_STATIC_HOOK(
         if (thread.joinable()) thread.join();
     }
 
-    auto stack = origin(fileStream, repo);
+    auto stack = origin(fileStream, repo, std::move(levelId));
     for (auto& id : impl->mPackListCache) {
-        auto* pack = resourcePackRepository->getResourcePackForPackId(PackIdVersion::fromString(id));
+        auto pack = resourcePackRepository->getResourcePackForPackId(PackIdVersion::fromString(id));
         stack->add(
             PackInstance(
-                {*pack},
+                {pack},
                 0,
                 false,
-                resourcePackRepository->getPackSettingsFactory().getPackSettings(pack->getManifest(), std::nullopt)
+                resourcePackRepository->getPackSettingsFactory().getPackSettings(*pack->mPack->mManifest, std::nullopt)
             ),
             repo,
             false
@@ -139,24 +149,51 @@ LL_TYPE_INSTANCE_HOOK(
     AddonsLoader::Impl::ResourcePackRepositoryInitHook,
     HookPriority::Normal,
     ResourcePackRepository,
-    &ResourcePackRepository::_initialize,
-    void
+    &ResourcePackRepository::$ctor,
+    void*,
+    gsl::not_null<std::shared_ptr<RepositoryPacks>>                   repositoryPacks,
+    PackManifestFactory&                                              manifestFactory,
+    Bedrock::NotNullNonOwnerPtr<IContentAccessibilityProvider> const& contentAccessibility,
+    Bedrock::NotNullNonOwnerPtr<Core::FilePathManager> const&         pathManager,
+    Bedrock::NonOwnerPointer<PackCommand::IPackCommandPipeline>       commands,
+    PackSourceFactory&                                                packSourceFactory,
+    bool                                                              initAsync,
+    std::unique_ptr<IRepositoryFactory>                               factory
 ) {
-    auto& impl              = AddonsLoader::getInstance().pImpl;
-    auto* compositePack     = const_cast<CompositePackSource*>(getWorldPackSource());
-    auto& packSourceFactory = getPackSourceFactory();
+    AddonsLoader::getInstance().pImpl->mResourcePackRepository = this;
+    return origin(
+        std::move(repositoryPacks),
+        manifestFactory,
+        contentAccessibility,
+        pathManager,
+        std::move(commands),
+        packSourceFactory,
+        initAsync,
+        std::move(factory)
+    );
+}
+
+LL_TYPE_INSTANCE_HOOK(
+    AddonsLoader::Impl::RepositorySourcesInitHook,
+    HookPriority::Normal,
+    RepositorySources,
+    &RepositorySources::initializePackSource,
+    void,
+    PackSourceFactory& packSourceFactory
+) {
+    origin(packSourceFactory);
+    auto& impl = AddonsLoader::getInstance().pImpl;
 
     for (auto [type, name] : magic_enum::enum_entries<PackType>()) {
         if (type != PackType::Invalid && type != PackType::Count) {
             for (auto& path : impl->mAllResourcePath) {
-                compositePack->mPackSources->push_back(
+                mWorldPackSource->mPackSources->push_back(
                     &packSourceFactory.createDirectoryPackSource(Core::Path(path), type, PackOrigin::Test, false)
                 );
-                refreshPacks();
+                impl->mResourcePackRepository->refreshPacks();
             }
         }
     }
-    return origin();
 }
 
 using namespace ll::memory_literals;
