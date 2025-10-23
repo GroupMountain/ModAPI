@@ -129,6 +129,24 @@ std::string ICustomItem::getInteractButtonText() const { return "action.interact
 
 std::string ICustomItem::getInteractText(::Player const&) const { return getInteractButtonText(); }
 
+PuvLoadData::LoadResultWithTiming ICustomItem::initServer(
+    Json::Value const&  json,
+    SemVersion const&   version,
+    IPackLoadContext&   context,
+    JsonBetaState const state
+) {
+    return Item::initServer(json, version, context, state);
+}
+
+PuvLoadData::LoadResultWithTiming ICustomItem::initClient(
+    Json::Value const&  json,
+    SemVersion const&   version,
+    JsonBetaState const state,
+    IPackLoadContext&   context
+) {
+    return Item::initClient(json, version, state, context);
+}
+
 } // namespace modapi::inline item
 
 // 临时修复链接问题
