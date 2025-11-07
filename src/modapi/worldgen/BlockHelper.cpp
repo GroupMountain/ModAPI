@@ -1,6 +1,7 @@
 #include "modapi/worldgen/BlockHelper.h"
 #include <mc/world/level/BlockSource.h>
 #include <mc/world/level/ChunkBlockPos.h>
+#include <mc/world/level/block/BlockChangeContext.h>
 #include <mc/world/level/chunk/LevelChunk.h>
 #include <mc/world/level/dimension/Dimension.h>
 
@@ -19,7 +20,7 @@ void setBlock(BlockSource* source, BlockPos const& pos, Block const& block, ucha
     if (!check(source, pos)) throw std::runtime_error("invalid position.");
     switch (layer) {
     case 0:
-        source->setBlock(pos, block, updateFlags, nullptr, nullptr);
+        source->setBlock(pos, block, updateFlags, nullptr, {});
         break;
     case 1:
         source->setExtraBlock(pos, block, updateFlags);
@@ -33,7 +34,7 @@ void setBlock(LevelChunk* chunk, BlockPos const& pos, Block const& block, uchar 
     const auto chunkPos = ChunkBlockPos{pos, chunk->mDimension.mHeightRange->mMin};
     switch (layer) {
     case 0:
-        chunk->setBlock(chunkPos, block, nullptr, nullptr);
+        chunk->setBlock(chunkPos, block, nullptr, nullptr, {});
         break;
     case 1:
         chunk->setExtraBlock(chunkPos, block, nullptr);
