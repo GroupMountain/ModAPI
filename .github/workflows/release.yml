@@ -12,15 +12,6 @@ jobs:
 
       - name: Setup XMake
         uses: xmake-io/github-action-setup-xmake@v1
-      
-      - name: Cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/AppData/Local/.xmake
-          key: xmake-${{ hashFiles('xmake.lua') }}
-          restore-keys: |
-            xmake-
 
       - name: Update Repo
         run: xmake repo -u
@@ -29,7 +20,7 @@ jobs:
         run: xmake f -a x64 -m release -p windows -v -y
 
       - name: Build Project
-        run: xmake -v -y
+        run: xmake -w -y
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4

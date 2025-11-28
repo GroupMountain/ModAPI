@@ -28,7 +28,7 @@ jobs:
         run: xmake f -a x64 -m release -p windows -v -y
 
       - name: Build Project
-        run: xmake -v -y
+        run: xmake -w -y
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
