@@ -6,6 +6,8 @@ LL_FORCEINLINE HumanoidArmorItem::ArmorMaterial const& getArmorMaterial(Humanoid
     switch (armorTier) {
     case ::HumanoidArmorItem::Tier::Chain:
         return HumanoidArmorItem::CHAIN();
+    case ::HumanoidArmorItem::Tier::Copper:
+        return HumanoidArmorItem::COPPER();
     case ::HumanoidArmorItem::Tier::Iron:
         return HumanoidArmorItem::IRON();
     case ::HumanoidArmorItem::Tier::Diamond:

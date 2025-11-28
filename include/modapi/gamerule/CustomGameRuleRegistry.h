@@ -65,14 +65,14 @@ protected:
 
 } // namespace modapi::inline gamerule
 
-#define MODAPI_REGISTER_GAME_RULE(RULE_CLASS, ...)                                                                      \
-    inline static auto MODAPI_CUSTOM_GAME_RULE_##RULE_CLASS = [] {                                                      \
+#define MODAPI_REGISTER_GAME_RULE(RULE_CLASS, ...)                                                                     \
+    inline static auto MODAPI_CUSTOM_GAME_RULE_##RULE_CLASS = [] {                                                     \
         ::modapi::CustomGameRuleRegistry::getInstance().registerGameRule<RULE_CLASS>(__VA_ARGS__);                     \
         return 0;                                                                                                      \
     }();
 
-#define MODAPI_REGISTER_GAME_RULES(IDENTIFIER, RULE_CLASS, ...)                                                         \
-    inline static auto MODAPI_CUSTOM_GAME_RULE_##IDENTIFIER = [] {                                                      \
+#define MODAPI_REGISTER_GAME_RULES(IDENTIFIER, RULE_CLASS, ...)                                                        \
+    inline static auto MODAPI_CUSTOM_GAME_RULE_##IDENTIFIER = [] {                                                     \
         ::modapi::CustomGameRuleRegistry::getInstance().registerGameRule<RULE_CLASS>(__VA_ARGS__);                     \
         return 0;                                                                                                      \
     }();
