@@ -162,7 +162,7 @@ CustomFeatureRegistry& CustomFeatureRegistry::registerFeatureRule(
     CustomFeatureRule               rule
 ) {
     static uint64 idx{0};
-    auto          ruleId = std::format("gmlib:interal_{}", idx++);
+    auto          ruleId = std::format("modapi:interal_{}", idx++);
     GlobalData::getInstance().features.emplace(
         ruleId,
         std::unique_ptr<IFeature>(new RuleFeature{std::move(rule), identifier})
