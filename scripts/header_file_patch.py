@@ -114,7 +114,8 @@ class HeaderPatchManager:
                 if insert_position == -1:
                     fatal("Failed to find '};' in header file.")
 
-                init_functions = """// tmpe fix
+                init_functions = """
+// tmpe fix
 MOD_API PuvLoadData::LoadResultWithTiming initServer(Json::Value const& json, SemVersion const& version, IPackLoadContext& context, JsonBetaState const state) override;
 MOD_API PuvLoadData::LoadResultWithTiming initClient(Json::Value const& json, SemVersion const& version, JsonBetaState const state, IPackLoadContext& context) override;"""
                 return content[:insert_position] + init_functions + content[insert_position:]

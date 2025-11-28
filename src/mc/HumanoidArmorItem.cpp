@@ -1,5 +1,6 @@
 #include "modapi/item/types/mc/HumanoidArmorItem.h"
 #include <ll/api/memory/Memory.h>
+#include <magic_enum.hpp>
 #include <mc/deps/puv/puv_load_data/LoadResultWithTiming.h>
 
 LL_FORCEINLINE HumanoidArmorItem::ArmorMaterial const& getArmorMaterial(HumanoidArmorItem::Tier armorTier) {
@@ -23,6 +24,7 @@ LL_FORCEINLINE HumanoidArmorItem::ArmorMaterial const& getArmorMaterial(Humanoid
     default:
         return HumanoidArmorItem::LEATHER();
     }
+    static_assert(magic_enum::enum_count<HumanoidArmorItem::Tier>() == 9, "Unhandled HumanoidArmorItem::Tier value");
 }
 
 HumanoidArmorItem::HumanoidArmorItem(std::string const& name, HumanoidArmorItem::Tier armorTier)

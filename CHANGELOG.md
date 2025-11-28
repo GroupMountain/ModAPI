@@ -11,11 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Changed
 
+- Adapted LeviLamina 1.7.6 and BDS 1.21.124 @zimuya4153
 - Correct the name of the macro definition @zimuya4153
 
 ### Fixed
 
-- Fixed the Item link issue temporarily @zimuya4153
+- Fixed the HumanoidArmorItem link issue temporarily @zimuya4153
 
 ## [0.3.0] - 2025-11-07
 

@@ -207,7 +207,7 @@ LL_STATIC_HOOK(
     bool        logOnlyOnce,
     LogLevel    level,
     LogArea     area,
-    const char* message
+    char const* message
 ) {
     constexpr static std::string_view fuckMessage =
         "Cannot determine which pack manifest to use: Multiple manifests found at the "

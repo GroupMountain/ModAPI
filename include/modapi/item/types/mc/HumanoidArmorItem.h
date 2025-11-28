@@ -255,6 +255,7 @@ public:
     // NOLINTBEGIN
     MCNAPI static void** $vftable();
     // NOLINTEND
+
     // tmpe fix
     MOD_API PuvLoadData::LoadResultWithTiming
     initServer(Json::Value const& json, SemVersion const& version, IPackLoadContext& context, JsonBetaState state)
