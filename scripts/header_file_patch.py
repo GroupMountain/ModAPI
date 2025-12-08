@@ -4,10 +4,16 @@ import re
 from typing import NoReturn, Callable, List
 
 def info(message: str) -> None:
-    print(f"[{os.path.basename(__file__)}] \033[1;32m[INFO]\033[0m {message}")
+    if "GITHUB_ACTIONS" in os.environ:
+        print(f"[{os.path.basename(__file__)}] [INFO] {message}")
+    else:
+        print(f"[{os.path.basename(__file__)}] \033[1;32m[INFO]\033[0m {message}")
 
 def fatal(message: str) -> NoReturn:
-    print(f"[{os.path.basename(__file__)}] \033[1;31m[FATAL]\033[0m {message}")
+    if "GITHUB_ACTIONS" in os.environ:
+        print(f"[{os.path.basename(__file__)}] [FATAL] {message}")
+    else:
+        print(f"[{os.path.basename(__file__)}] \033[1;31m[FATAL]\033[0m {message}")
     sys.exit(1)
 
 class HeaderPatcher:
