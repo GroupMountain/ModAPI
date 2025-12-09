@@ -1,13 +1,13 @@
 #pragma once
 
 #include "modapi/Macros.h"
-#include <mc/_HeaderOutputPredefine.h>
+#include "mc/_HeaderOutputPredefine.h"
 
 // auto generated inclusion list
-#include <mc/deps/shared_types/legacy/LevelSoundEvent.h>
-#include <mc/deps/shared_types/legacy/actor/ActorLocation.h>
-#include <mc/deps/shared_types/legacy/actor/ArmorSlot.h>
-#include <mc/world/item/Item.h>
+#include "mc/deps/shared_types/legacy/LevelSoundEvent.h"
+#include "mc/deps/shared_types/legacy/actor/ActorLocation.h"
+#include "mc/deps/shared_types/legacy/actor/ArmorSlot.h"
+#include "mc/world/item/Item.h"
 
 // auto generated forward declare list
 // clang-format off
@@ -53,27 +53,27 @@ public:
     public:
         // member variables
         // NOLINTBEGIN
-        int   mDurabilityMultiplier;
-        int   mSlotProtections[4];
-        int   mToughnessValue;
-        int   mEnchantmentValue;
-        float mKnockbackResistance;
+        int     mDurabilityMultiplier;
+        int mSlotProtections[4];
+        int     mToughnessValue;
+        int     mEnchantmentValue;
+        float   mKnockbackResistance;
         // NOLINTEND
     };
 
 public:
     // member variables
     // NOLINTBEGIN
-    ::SharedTypes::Legacy::ArmorSlot          mSlot;
-    int                                       mDefense;
-    int                                       mModelIndex;
+    ::SharedTypes::Legacy::ArmorSlot mSlot;
+    int mDefense;
+    int mModelIndex;
     ::HumanoidArmorItem::ArmorMaterial const& mArmorType;
     bool                                      mCurrentVersionAllowsTrim;
     // NOLINTEND
 
 public:
     // prevent constructor by default
-    MOD_NDAPI          HumanoidArmorItem(std::string const& name, HumanoidArmorItem::Tier armorTier);
+MOD_NDAPI HumanoidArmorItem(std::string const& name, HumanoidArmorItem::Tier armorTier);
     HumanoidArmorItem& operator=(HumanoidArmorItem const&);
     HumanoidArmorItem(HumanoidArmorItem const&);
     HumanoidArmorItem();
@@ -256,11 +256,6 @@ public:
     MCNAPI static void** $vftable();
     // NOLINTEND
 
-    // tmpe fix
-    MOD_API PuvLoadData::LoadResultWithTiming
-    initServer(Json::Value const& json, SemVersion const& version, IPackLoadContext& context, JsonBetaState state)
-        override;
-    MOD_API PuvLoadData::LoadResultWithTiming
-    initClient(Json::Value const& json, SemVersion const& version, JsonBetaState state, IPackLoadContext& context)
-        override;
-};
+// tmpe fix
+MOD_API PuvLoadData::LoadResultWithTiming initServer(Json::Value const& json, SemVersion const& version, IPackLoadContext& context, JsonBetaState state) override;
+MOD_API PuvLoadData::LoadResultWithTiming initClient(Json::Value const& json, SemVersion const& version, JsonBetaState state, IPackLoadContext& context) override;};

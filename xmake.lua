@@ -50,7 +50,7 @@ target("ModAPI")
     add_configfiles("$(projectdir)/include/(**.*.in)")
     set_configdir("$(builddir)/config")
 
-    on_load(function (target)
+    after_load(function (target)
         local version_info = import("scripts.get-version-info").get_version_info()
         target:set("configvar", "MODAPI_VERSION_MAJOR", version_info.major)
         target:set("configvar", "MODAPI_VERSION_MINOR", version_info.minor)
@@ -58,8 +58,10 @@ target("ModAPI")
         if version_info.prerelease then
             target:set("configvar", "MODAPI_VERSION_PRERELEASE", version_info.prerelease)
         end
-
         os.exec("python ./scripts/header_file_patch.py \"" .. os.projectdir() .. "\" \"" .. path.join(target:pkgs()["levilamina"]:get("installdir"), "include") .. "\"")
+    end)
+
+    before_build(function (target) 
         os.exec("python ./scripts/include_correction.py ./ --internal include src build/config --silent")
         os.exec("python ./scripts/format_all.py --silent")
     end)

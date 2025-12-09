@@ -50,7 +50,10 @@ public:
     );
 
     template <typename T, class... Args>
-        requires(std::is_base_of_v<ICustomGameRule<bool>, T> || std::is_base_of_v<ICustomGameRule<int>, T> || std::is_base_of_v<ICustomGameRule<float>, T>)
+        requires(
+            std::is_base_of_v<ICustomGameRule<bool>, T> || std::is_base_of_v<ICustomGameRule<int>, T>
+            || std::is_base_of_v<ICustomGameRule<float>, T>
+        )
     CustomGameRuleRegistry& registerGameRule(Args&&... args) {
         return _registerGameRule([... args = std::forward<Args>(args)]() -> std::unique_ptr<T> {
             return std::make_unique<T>(args...);

@@ -116,8 +116,11 @@ CustomItemRegistry& CustomItemRegistry::_registerItem(std::function<std::unique_
             }
             if (!registered) {
                 if (sharedItem->mIsHiddenInCommands == ::ItemCommandVisibility::Visible) {
-                    auto registerCommandEnum = static_cast<
-                        int (*)(CommandRegistry*, std::string const&, std::vector<std::pair<std::string, ::CommandItem>> const&)>(
+                    auto registerCommandEnum = static_cast<int (*)(
+                        CommandRegistry*,
+                        std::string const&,
+                        std::vector<std::pair<std::string, ::CommandItem>> const&
+                    )>(
                         ll::memory::SymbolView(
                             "??$addEnumValues@VCommandItem@@U?$DefaultIdConverter@VCommandItem@@@CommandRegistry@@@"
                             "CommandRegistry@@QEAAHAEBV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@"

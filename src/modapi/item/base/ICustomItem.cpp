@@ -108,8 +108,11 @@ short ICustomItem::getMaxDamage() const { return getItemDurability(); }
 
 void ICustomItem::_init() { return initCustomItem(*this); }
 
-bool ICustomItem::isValidRepairItem(::ItemStackBase const&, ::ItemStackBase const& repairItem, ::BaseGameVersion const&)
-    const {
+bool ICustomItem::isValidRepairItem(
+    ::ItemStackBase const&,
+    ::ItemStackBase const& repairItem,
+    ::BaseGameVersion const&
+) const {
     for (auto& items : getRepairItems()) {
         for (auto& item : items.mItems) {
             if (item == repairItem.getTypeName()) {

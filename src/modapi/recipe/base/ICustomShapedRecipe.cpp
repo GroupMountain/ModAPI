@@ -6,7 +6,8 @@ namespace modapi::inline recipe {
 
 ICustomShapedRecipe::ShapedIngredients::ShapedIngredients() = default;
 
-ICustomShapedRecipe::ShapedIngredients::ShapedIngredients(std::unordered_map<std::string, Ingredient> const& ingredients
+ICustomShapedRecipe::ShapedIngredients::ShapedIngredients(
+    std::unordered_map<std::string, Ingredient> const& ingredients
 )
 : mIngredients(ingredients) {}
 

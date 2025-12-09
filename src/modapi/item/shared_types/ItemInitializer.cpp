@@ -51,7 +51,8 @@ void initCustomItem(ICustomItem& item) {
     if (item.getCompostChance() > 0) {
         auto chance = item.getCompostChance();
         if (chance > 100) chance = 100;
-        const_cast<std::unordered_map<uint64, int8_t>&>(ComposterBlock::_getCompostableItems()
+        const_cast<std::unordered_map<uint64, int8_t>&>(
+            ComposterBlock::_getCompostableItems()
         )[item.mFullName->mStrHash] = static_cast<int8>(chance);
     }
 }
@@ -112,7 +113,8 @@ void initCustomItem(ICustomArmorItem& item) {
     if (item.getCompostChance() > 0) {
         auto chance = item.getCompostChance();
         if (chance > 100) chance = 100;
-        const_cast<std::unordered_map<uint64, int8_t>&>(ComposterBlock::_getCompostableItems()
+        const_cast<std::unordered_map<uint64, int8_t>&>(
+            ComposterBlock::_getCompostableItems()
         )[item.mFullName->mStrHash] = static_cast<int8>(chance);
     }
 }

@@ -23,11 +23,13 @@ bool ModAPI::load() {
         getLogger().error("It is prohibited to load ModAPI mod when the server is running.");
         return false;
     }
-    getLogger().setFormatter(ll::makePolymorphic<RandomColorLogFormatter>(
-        "{3:.3%T.} {2} {1} {0}",
-        ll::io::Formatter::supportColorLog(),
-        0b0010
-    ));
+    getLogger().setFormatter(
+        ll::makePolymorphic<RandomColorLogFormatter>(
+            "{3:.3%T.} {2} {1} {0}",
+            ll::io::Formatter::supportColorLog(),
+            0b0010
+        )
+    );
     correctManifest();
     printLogo();
     return true;
