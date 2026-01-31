@@ -3,6 +3,7 @@
 #include "modapi/item/shared_types/NetworkTagBuilder.h"
 #include <ll/api/memory/Memory.h>
 #include <mc/deps/puv/puv_load_data/LoadResultWithTiming.h>
+#include <mc/world/item/ItemIconInfoFactory.h>
 #include <mc/world/item/ItemStackBase.h>
 #include <mc/world/item/enchanting/EnchantUtils.h>
 #include <mc/world/level/block/Block.h>
@@ -145,9 +146,10 @@ PuvLoadData::LoadResultWithTiming ICustomItem::initClient(
     Json::Value const&  json,
     SemVersion const&   version,
     JsonBetaState const state,
-    IPackLoadContext&   context
+    IPackLoadContext&   context,
+    ItemIconInfoFactory iconFactory
 ) {
-    return Item::initClient(json, version, state, context);
+    return Item::initClient(json, version, state, context, iconFactory);
 }
 
 } // namespace modapi::inline item

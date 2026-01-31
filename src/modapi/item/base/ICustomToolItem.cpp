@@ -5,6 +5,7 @@
 #include <mc/network/packet/AnimatePacket.h>
 #include <mc/network/packet/LevelSoundEventPacket.h>
 #include <mc/world/actor/Actor.h>
+#include <mc/world/actor/ActorSwingSource.h>
 #include <mc/world/actor/RenderParams.h>
 #include <mc/world/item/ItemStackBase.h>
 #include <mc/world/item/ItemTag.h>
@@ -75,7 +76,7 @@ bool ICustomToolItem::canDestroySpecial(Block const& block) const {
 void ICustomToolItem::executeEvent(::ItemStackBase& item, ::std::string const& ev, ::RenderParams& rp) const {
     if (rp.mActor && ev == "on_tool_used" && rp.mBlock) {
         item.hurtAndBreak(1, rp.mActor);
-        rp.mActor->swing();
+        rp.mActor->swing(ActorSwingSource::UseItem);
         AnimatePacket anipkt;
         anipkt.mAction    = AnimatePacket::Action::Swing;
         anipkt.mRuntimeId = rp.mActor->getRuntimeID();

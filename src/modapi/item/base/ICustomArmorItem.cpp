@@ -90,7 +90,7 @@ int ICustomArmorItem::getArmorValue() const { return 0; }
 
 int ICustomArmorItem::getToughnessValue() const { return 0; }
 
-float ICustomArmorItem::getArmorKnockbackResistance() const { return 0; }
+float ICustomArmorItem::getKnockbackResistanceValue() const { return 0; }
 
 bool ICustomArmorItem::isDyeable() const { return false; }
 

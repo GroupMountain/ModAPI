@@ -5,6 +5,8 @@
 #include <ll/api/thread/ServerThreadExecutor.h>
 #include <mc/common/SharedConstants.h>
 #include <mc/deps/core/sem_ver/SemVersion.h>
+#include <mc/deps/core/sem_ver/SemVersionBase.h>
+#include <mc/deps/core/string/StaticOptimizedString.h>
 #include <mc/world/actor/player/Player.h>
 #include <mc/world/inventory/CraftingContainer.h>
 #include <mc/world/item/NetworkItemInstanceDescriptor.h>
@@ -79,3 +81,12 @@ void ICustomShapelessMultiRecipe::_init() {
 }
 
 } // namespace modapi::inline recipe
+
+SemVersion::SemVersion()
+: SemVersion(
+      0,
+      0,
+      0,
+      {"", Bedrock::StaticOptimizedString::StorageType::Static},
+      {"", Bedrock::StaticOptimizedString::StorageType::Static}
+  ) {};

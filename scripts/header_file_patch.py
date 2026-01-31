@@ -106,19 +106,6 @@ class HeaderPatchManager:
             os.path.join(levilamina_path, "mc", "world", "item", "HumanoidArmorItem.h"),
             os.path.join(project_path, "include", "modapi", "item", "types", "mc", "HumanoidArmorItem.h")
         ) as patcher:
-            def add_init_functions(content: str) -> str | NoReturn:
-                """添加初始化函数"""
-                if "$initServer" in content and "$initClient" in content:
-                    fatal("The header file already contains '$initServer' and '$initClient'. Please update the patch script accordingly.")
-                insert_position = content.rfind("};")
-                if insert_position == -1:
-                    fatal("Failed to find '};' in header file.")
-
-                init_functions = """
-// tmpe fix
-MOD_API PuvLoadData::LoadResultWithTiming initServer(Json::Value const& json, SemVersion const& version, IPackLoadContext& context, JsonBetaState const state) override;
-MOD_API PuvLoadData::LoadResultWithTiming initClient(Json::Value const& json, SemVersion const& version, JsonBetaState const state, IPackLoadContext& context) override;"""
-                return content[:insert_position] + init_functions + content[insert_position:]
             (patcher
                 .find_and_insert(
                     "#pragma once\n\n",
@@ -128,9 +115,6 @@ MOD_API PuvLoadData::LoadResultWithTiming initClient(Json::Value const& json, Se
                     "prevent constructor by default", 
                     "\nMOD_NDAPI HumanoidArmorItem(std::string const& name, HumanoidArmorItem::Tier armorTier);",
                     occurrence=1
-                )
-                .with_modification(
-                    add_init_functions
                 )
                 .regex_replace(
                     r'::ll::TypedStorage<\d+, \d+, (.*)>',
