@@ -202,7 +202,7 @@ LL_STATIC_HOOK(
     AddonsLoader::Impl::FuckMultipleManifestOutput,
     HookPriority::Normal,
     // ContentLogHelper::_contentLog<char const (&)[135]>
-    "48 89 5C 24 ?? 48 89 74 24 ?? 57 48 83 EC ?? 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 44 24 ?? 49 8B F1 41 8B D8 8B FA"_sig,
+    "48 89 5C 24 ?? 48 89 74 24 ?? 57 48 83 EC ?? 49 8B F1 41 ?? ?? ?? FA 0F 57 C0 33 C0 0F ?? 44 24 30 0F 11 44 24 40"_sig,
     void,
     bool        logOnlyOnce,
     LogLevel    level,
