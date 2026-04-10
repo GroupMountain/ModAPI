@@ -74,10 +74,9 @@ LL_TYPE_INSTANCE_HOOK(
     HookPriority::Normal,
     PropertiesSettings,
     &PropertiesSettings::$ctor,
-    void*,
-    std::string const& filename
+    void*
 ) {
-    auto res                                                                 = origin(filename);
+    auto res                                                                 = origin();
     reinterpret_cast<PropertiesSettings*>(res)->mClientSideGenerationEnabled = false;
     return res;
 }

@@ -1,13 +1,13 @@
 #pragma once
 
 #include "modapi/Macros.h"
-#include <mc/_HeaderOutputPredefine.h>
+#include "mc/_HeaderOutputPredefine.h"
 
 // auto generated inclusion list
-#include <mc/deps/shared_types/legacy/LevelSoundEvent.h>
-#include <mc/deps/shared_types/legacy/actor/ActorLocation.h>
-#include <mc/deps/shared_types/legacy/actor/ArmorSlot.h>
-#include <mc/world/item/Item.h>
+#include "mc/deps/shared_types/legacy/LevelSoundEvent.h"
+#include "mc/deps/shared_types/legacy/actor/ActorLocation.h"
+#include "mc/deps/shared_types/legacy/actor/ArmorSlot.h"
+#include "mc/world/item/Item.h"
 
 // auto generated forward declare list
 // clang-format off
@@ -53,27 +53,27 @@ public:
     public:
         // member variables
         // NOLINTBEGIN
-        int   mDurabilityMultiplier;
-        int   mSlotProtections[4];
-        int   mToughnessValue;
-        int   mEnchantmentValue;
-        float mKnockbackResistance;
+        int     mDurabilityMultiplier;
+        int mSlotProtections[4];
+        int     mToughnessValue;
+        int     mEnchantmentValue;
+        float   mKnockbackResistance;
         // NOLINTEND
     };
 
 public:
     // member variables
     // NOLINTBEGIN
-    ::SharedTypes::Legacy::ArmorSlot          mSlot;
-    int                                       mDefense;
-    int                                       mModelIndex;
+    ::SharedTypes::Legacy::ArmorSlot mSlot;
+    int mDefense;
+    int mModelIndex;
     ::HumanoidArmorItem::ArmorMaterial const& mArmorType;
     bool                                      mCurrentVersionAllowsTrim;
     // NOLINTEND
 
 public:
     // prevent constructor by default
-    MOD_NDAPI          HumanoidArmorItem(std::string const& name, HumanoidArmorItem::Tier armorTier);
+MOD_NDAPI HumanoidArmorItem(std::string const& name, HumanoidArmorItem::Tier armorTier);
     HumanoidArmorItem& operator=(HumanoidArmorItem const&);
     HumanoidArmorItem(HumanoidArmorItem const&);
     HumanoidArmorItem();
@@ -142,8 +142,6 @@ public:
 public:
     // member functions
     // NOLINTBEGIN
-    MCAPI ::std::string _buildAttributeText() const;
-
     MCAPI ::ItemInstance getTierItem() const;
     // NOLINTEND
 
@@ -212,7 +210,7 @@ public:
 
     MCAPI bool $dispense(::BlockSource& region, ::Container& container, int slot, ::Vec3 const& pos, uchar) const;
 
-    MCAPI void $appendFormattedHovertext(
+    MCFOLD void $appendFormattedHovertext(
         ::ItemStackBase const&               stack,
         ::Level&                             level,
         ::Bedrock::Safety::RedactableString& hovertext,
@@ -234,6 +232,6 @@ public:
 public:
     // vftables
     // NOLINTBEGIN
-    MCNAPI static void** $vftable();
+    MCAPI static void** $vftable();
     // NOLINTEND
 };

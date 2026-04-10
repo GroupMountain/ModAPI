@@ -3,7 +3,7 @@
 #include "modapi/item/base/ICustomItem.h"
 #include <ll/api/utils/StringUtils.h>
 #include <magic_enum/magic_enum.hpp>
-#include <mc/nbt/CompoundTag.h>
+#include <mc/deps/nbt/CompoundTag.h>
 #include <mc/world/item/ItemTag.h>
 
 namespace modapi::inline item {

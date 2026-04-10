@@ -133,23 +133,18 @@ std::string ICustomItem::getInteractButtonText() const { return "action.interact
 
 std::string ICustomItem::getInteractText(::Player const&) const { return getInteractButtonText(); }
 
-PuvLoadData::LoadResultWithTiming ICustomItem::initServer(
-    Json::Value const&  json,
-    SemVersion const&   version,
-    IPackLoadContext&   context,
-    JsonBetaState const state
-) {
-    return Item::initServer(json, version, context, state);
+PuvLoadData::LoadResultWithTiming
+ICustomItem::initServer(Json::Value const& json, SemVersion const& version, PackLoadContext& context) {
+    return Item::initServer(json, version, context);
 }
 
 PuvLoadData::LoadResultWithTiming ICustomItem::initClient(
     Json::Value const&  json,
     SemVersion const&   version,
-    JsonBetaState const state,
-    IPackLoadContext&   context,
+    PackLoadContext&    context,
     ItemIconInfoFactory iconFactory
 ) {
-    return Item::initClient(json, version, state, context, iconFactory);
+    return Item::initClient(json, version, context, iconFactory);
 }
 
 } // namespace modapi::inline item

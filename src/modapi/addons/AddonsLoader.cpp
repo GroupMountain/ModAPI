@@ -29,15 +29,9 @@ public:
     struct PacksLoadHook;
     struct RepositorySourcesInitHook;
     struct ResourcePackRepositoryInitHook;
-    struct FuckMultipleManifestOutput;
 
 public:
-    ll::memory::HookRegistrar<
-        PacksCtorHook,
-        PacksLoadHook,
-        RepositorySourcesInitHook,
-        ResourcePackRepositoryInitHook,
-        FuckMultipleManifestOutput>
+    ll::memory::HookRegistrar<PacksCtorHook, PacksLoadHook, RepositorySourcesInitHook, ResourcePackRepositoryInitHook>
                                         mHooks;
     ResourcePackRepository*             mResourcePackRepository;
     ll::DenseSet<std::filesystem::path> mAllResourcePath;
@@ -195,25 +189,4 @@ LL_TYPE_INSTANCE_HOOK(
         }
     }
 }
-
-using namespace ll::memory_literals;
-
-LL_STATIC_HOOK(
-    AddonsLoader::Impl::FuckMultipleManifestOutput,
-    HookPriority::Normal,
-    // ContentLogHelper::_contentLog<char const (&)[135]>
-    "48 89 5C 24 ?? 48 89 74 24 ?? 57 48 83 EC ?? 49 8B F1 41 ?? ?? ?? FA 0F 57 C0 33 C0 0F ?? 44 24 30 0F 11 44 24 40"_sig,
-    void,
-    bool        logOnlyOnce,
-    LogLevel    level,
-    LogArea     area,
-    char const* message
-) {
-    constexpr static std::string_view fuckMessage =
-        "Cannot determine which pack manifest to use: Multiple manifests found at the "
-        "same directory level in the pack's folder hierarchy.";
-    if (message == fuckMessage) return;
-    origin(logOnlyOnce, level, area, message);
-}
-
 } // namespace modapi::inline addons

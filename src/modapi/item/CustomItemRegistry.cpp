@@ -1,3 +1,4 @@
+#pragma include_alias("mc/deps/shared_types/util/Reference.h", "modapi/item/ReferencePatched.h")
 #include "modapi/item/CustomItemRegistry.h"
 #include "modapi/item/CustomCreativeItemRegistry.h"
 #include "modapi/item/shared_types/NetworkTagBuilder.h"
@@ -8,6 +9,8 @@
 #include <ll/api/service/Bedrock.h>
 #include <ll/api/utils/ErrorUtils.h>
 #include <mc/common/SharedPtr.h>
+#include <mc/deps/vanilla_components/ActorDataDirtyFlagsComponent.h>
+#include <mc/deps/vanilla_components/ActorDataFlagComponent.h>
 #include <mc/network/packet/ItemData.h>
 #include <mc/network/packet/ItemRegistryPacket.h>
 #include <mc/server/commands/CommandItem.h>
@@ -53,7 +56,7 @@ LL_STATIC_HOOK(
     &::VanillaItems::registerItems,
     void,
     ::cereal::ReflectionCtx& ctx,
-    ::ItemRegistryRef        itemRegistry,
+    ::ItemRegistryRef        itemRegistry, /*NOLINT*/
     ::BaseGameVersion const& baseGameVersion,
     ::Experiments const&     experiments
 ) {
@@ -75,7 +78,7 @@ LL_STATIC_HOOK(
                 itemId    = registry.mMaxItemID;
                 item->mId = itemId;
             }
-            registry.mItemRegistry->push_back(::SharedPtr<Item>(std::move(item)));
+            registry.mItemRegistry->emplace_back(item);
             auto& sharedItem                 = registry.mItemRegistry->at(registry.mItemRegistry->size() - 1);
             (*registry.mIdToItemMap)[itemId] = sharedItem;
             (*registry.mNameToItemMap)[name] = sharedItem;
@@ -107,7 +110,7 @@ CustomItemRegistry& CustomItemRegistry::_registerItem(std::function<std::unique_
                 itemId    = registry.mMaxItemID;
                 item->mId = itemId;
             }
-            registry.mItemRegistry->push_back(::SharedPtr<Item>(std::move(item)));
+            registry.mItemRegistry->emplace_back(item);
             auto& sharedItem                 = registry.mItemRegistry->at(registry.mItemRegistry->size() - 1);
             (*registry.mIdToItemMap)[itemId] = sharedItem;
             (*registry.mNameToItemMap)[name] = sharedItem;
@@ -134,7 +137,7 @@ CustomItemRegistry& CustomItemRegistry::_registerItem(std::function<std::unique_
                         ll::service::getCommandRegistry().as_ptr(),
                         "Item",
                         {
-                            {sharedItem->mFullName->getString(), ::CommandItem{1, 0, sharedItem->mId}}
+                            {sharedItem->mFullName->getString(), ::CommandItem{{{1, false, sharedItem->mId}}}}
                     }
                     );
                     /*
@@ -215,10 +218,13 @@ LL_TYPE_INSTANCE_HOOK(
 ) {
     auto itemActor = origin(region, inst, spawner, pos, throwTime);
     if (itemActor && !itemActor->item().isNull()) {
-        ::SynchedActorDataAccess::setActorFlag(
-            itemActor->getEntityContext(),
-            ::ActorFlags::FireImmune,
+        auto& dataFlagComponent = itemActor->getEntityContext().getOrAddComponent<ActorDataFlagComponent>();
+        dataFlagComponent.mValue.set(
+            std::to_underlying(ActorFlags::FireImmune),
             itemActor->item().getItem()->mFireResistant
+        );
+        itemActor->getEntityContext().mEnTTRegistry.emplace<ActorDataDirtyFlagsComponent>(
+            itemActor->getEntityContext().mEntity
         );
     }
     return itemActor;
