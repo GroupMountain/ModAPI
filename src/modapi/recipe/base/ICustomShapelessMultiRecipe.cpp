@@ -81,12 +81,3 @@ void ICustomShapelessMultiRecipe::_init() {
 }
 
 } // namespace modapi::inline recipe
-
-SemVersion::SemVersion()
-: SemVersion(
-      0,
-      0,
-      0,
-      {"", Bedrock::StaticOptimizedString::StorageType::Static},
-      {"", Bedrock::StaticOptimizedString::StorageType::Static}
-  ) {};

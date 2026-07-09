@@ -2,8 +2,6 @@
 #include "modapi/item/shared_types/ItemInitializer.h"
 #include "modapi/item/shared_types/NetworkTagBuilder.h"
 #include <ll/api/memory/Memory.h>
-#include <mc/deps/puv/puv_load_data/LoadResultWithTiming.h>
-#include <mc/world/item/ItemIconInfoFactory.h>
 #include <mc/world/item/ItemStackBase.h>
 #include <mc/world/item/enchanting/EnchantUtils.h>
 #include <mc/world/level/block/Block.h>
@@ -58,7 +56,9 @@ int ICustomItem::getUseDuration() const { return 0; }
     return ::Interactions::Mining::MineBlockItemEffectType::Default;
 }
 
-::CreativeItemCategory ICustomItem::getCreativeCategory() const { return ::CreativeItemCategory::Items; }
+::SharedTypes::CreativeItemCategory ICustomItem::getCreativeCategory() const {
+    return ::SharedTypes::CreativeItemCategory::Items;
+}
 
 ::std::string ICustomItem::getCreativeGroup() const { return {}; }
 
@@ -70,7 +70,7 @@ uint8_t ICustomItem::getCompostChance() const { return 0; }
 
 float ICustomItem::getFurnaceBurnInterval() const { return 0; }
 
-float ICustomItem::getFurnaceXPmultiplier() const { return 0; }
+float ICustomItem::getFurnaceXPmultiplier(::ItemStackBase const&) const { return 0; }
 
 ::ItemCommandVisibility ICustomItem::shouldHiddenInCommands() const { return ::ItemCommandVisibility::Visible; }
 
@@ -133,18 +133,21 @@ std::string ICustomItem::getInteractButtonText() const { return "action.interact
 
 std::string ICustomItem::getInteractText(::Player const&) const { return getInteractButtonText(); }
 
-PuvLoadData::LoadResultWithTiming
-ICustomItem::initServer(Json::Value const& json, SemVersion const& version, PackLoadContext& context) {
-    return Item::initServer(json, version, context);
+void ICustomItem::initServer(
+    ::ItemComprehensiveLoadResult&& data,
+    ::SemVersion const&             documentVersion,
+    ::PackLoadContext&              packLoadContext
+) {
+    Item::initServer(std::move(data), documentVersion, packLoadContext);
 }
 
-PuvLoadData::LoadResultWithTiming ICustomItem::initClient(
-    Json::Value const&  json,
-    SemVersion const&   version,
-    PackLoadContext&    context,
-    ItemIconInfoFactory iconFactory
+void ICustomItem::initClient(
+    ::ItemComprehensiveLoadResult&& data,
+    ::SemVersion const&             documentVersion,
+    ::PackLoadContext&              packLoadContext,
+    ::std::optional<::ItemIconInfo> (*iconFactory)(::std::string const&, int)
 ) {
-    return Item::initClient(json, version, context, iconFactory);
+    Item::initClient(std::move(data), documentVersion, packLoadContext, iconFactory);
 }
 
 } // namespace modapi::inline item

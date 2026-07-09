@@ -34,7 +34,9 @@ uint8_t ICustomToolItem::getItemMaxStackSize() const { return 1; }
 
 bool ICustomToolItem::canDestroyInCreative() const { return !isSword(); }
 
-CreativeItemCategory ICustomToolItem::getCreativeCategory() const { return CreativeItemCategory::Equipment; }
+::SharedTypes::CreativeItemCategory ICustomToolItem::getCreativeCategory() const {
+    return ::SharedTypes::CreativeItemCategory::Equipment;
+}
 
 std::string ICustomToolItem::getCreativeGroup() const {
     if (isSword()) return "itemGroup.name.sworde";

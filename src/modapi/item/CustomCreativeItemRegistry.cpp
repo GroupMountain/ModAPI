@@ -41,9 +41,9 @@ CustomCreativeItemRegistry& CustomCreativeItemRegistry::getInstance() {
 }
 
 uint32_t CustomCreativeItemRegistry::registerCreativeGroup(
-    std::string_view       groupName,
-    ::ItemInstance&&       icon,
-    ::CreativeItemCategory category
+    std::string_view                    groupName,
+    ::ItemInstance&&                    icon,
+    ::SharedTypes::CreativeItemCategory category
 ) {
     if (!groupName.empty()) {
         auto& existedGroups = *pImpl->mRegistry->mCreativeGroupCategories->at(category).mNamedGroupIndex;
@@ -51,9 +51,14 @@ uint32_t CustomCreativeItemRegistry::registerCreativeGroup(
             return existedGroups.at(::HashedString(groupName));
         }
     }
-    auto nextIndex = (uint32_t)pImpl->mRegistry->mCreativeGroups->size();
-    pImpl->mRegistry->mCreativeGroups
-        ->emplace_back(pImpl->mRegistry, category, ::HashedString(groupName), nextIndex, icon);
+    auto                nextIndex = (uint32_t)pImpl->mRegistry->mCreativeGroups->size();
+    ::CreativeGroupInfo group;
+    group.mRegistry = pImpl->mRegistry;
+    group.mCategory = category;
+    group.mName     = ::HashedString(groupName);
+    group.mIndex    = nextIndex;
+    group.mIcon     = icon;
+    pImpl->mRegistry->mCreativeGroups->push_back(std::move(group));
     pImpl->mRegistry->mCreativeGroupCategories->at(category).mGroupIndexes->push_back(nextIndex);
     if (!groupName.empty()) {
         pImpl->mRegistry->mCreativeGroupCategories->at(category).mNamedGroupIndex->emplace(
@@ -65,9 +70,9 @@ uint32_t CustomCreativeItemRegistry::registerCreativeGroup(
 }
 
 bool CustomCreativeItemRegistry::registerCreativeItem(
-    ::ItemInstance&&       item,
-    ::CreativeItemCategory category,
-    std::string_view       itemGroup
+    ::ItemInstance&&                    item,
+    ::SharedTypes::CreativeItemCategory category,
+    std::string_view                    itemGroup
 ) {
     if ((int)category >= 1 && (int)category <= 4) {
         uint32_t groupIndex    = registerCreativeGroup(itemGroup, ::ItemInstance(), category);

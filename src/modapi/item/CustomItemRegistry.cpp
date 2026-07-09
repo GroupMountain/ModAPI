@@ -2,6 +2,7 @@
 #include "modapi/item/CustomItemRegistry.h"
 #include "modapi/item/CustomCreativeItemRegistry.h"
 #include "modapi/item/shared_types/NetworkTagBuilder.h"
+#include <cstring>
 #include <ll/api/command/CommandRegistrar.h>
 #include <ll/api/event/EventBus.h>
 #include <ll/api/event/server/ServerStartedEvent.h>
@@ -23,6 +24,31 @@
 #include <mc/world/item/registry/ItemRegistryRef.h>
 #include <mc/world/level/Level.h>
 #include <mc/world/level/Spawner.h>
+
+namespace {
+
+int registerCommandItemEnum(
+    CommandRegistry*                                          registry,
+    std::string const&                                        name,
+    std::vector<std::pair<std::string, ::CommandItem>> const& values
+) {
+    std::vector<std::pair<std::string, uint64>> converted;
+    converted.reserve(values.size());
+    for (auto& [str, item] : values) {
+        converted.emplace_back(str, static_cast<uint64>(item));
+    }
+    const auto id     = registry->mEnumLookup["Item"];
+    auto       parser = registry->mEnums[id].parse;
+    auto       symbol = registry->_addEnumValuesInternal(
+        name,
+        converted,
+        Bedrock::typeid_storage_impl<CommandRegistry, ::CommandItem>().get<CommandRegistry>(),
+        parser
+    );
+    return symbol.mValue;
+}
+
+} // namespace
 
 namespace std {
 
@@ -119,48 +145,13 @@ CustomItemRegistry& CustomItemRegistry::_registerItem(std::function<std::unique_
             }
             if (!registered) {
                 if (sharedItem->mIsHiddenInCommands == ::ItemCommandVisibility::Visible) {
-                    auto registerCommandEnum = static_cast<int (*)(
-                        CommandRegistry*,
-                        std::string const&,
-                        std::vector<std::pair<std::string, ::CommandItem>> const&
-                    )>(
-                        ll::memory::SymbolView(
-                            "??$addEnumValues@VCommandItem@@U?$DefaultIdConverter@VCommandItem@@@CommandRegistry@@@"
-                            "CommandRegistry@@QEAAHAEBV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@"
-                            "AEBV?$vector@U?$pair@V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@"
-                            "VCommandItem@@@std@@V?$allocator@U?$pair@V?$basic_string@DU?$char_traits@D@std@@V?$"
-                            "allocator@D@2@@std@@VCommandItem@@@std@@@2@@2@@Z"
-                        )
-                            .resolve()
-                    );
-                    registerCommandEnum(
+                    registerCommandItemEnum(
                         ll::service::getCommandRegistry().as_ptr(),
                         "Item",
                         {
-                            {sharedItem->mFullName->getString(), ::CommandItem{{{1, false, sharedItem->mId}}}}
+                            {sharedItem->mFullName->getString(), ::CommandItem{sharedItem->mId, 1, false}}
                     }
                     );
-                    /*
-                    函数原型是
-                    其中：
-                    class CommandRegistry {
-                    public:
-                        template <typename T>
-                        struct DefaultIdConverter{};
-
-                        template <typename T, typename C>
-                        int addEnumValues(
-                            std::string const& enumName,
-                            const std::vector<std::pair<std::string, T>>& values
-                        );
-                    };
-                    ////////
-                    ll::service::getCommandRegistry()
-                        ->addEnumValues<CommandItem, CommandRegistry::DefaultIdConverter<CommandItem>>(
-                            "Item",
-                            {{sharedItem->getSerializedName(), ::CommandItem(1, 0, sharedItem->mId)}
-                        });
-                    */
                 }
                 if ((int)sharedItem->mCreativeCategory >= 1 && (int)sharedItem->mCreativeCategory <= 4) {
                     CustomCreativeItemRegistry::getInstance().registerCreativeItem(

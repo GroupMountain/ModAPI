@@ -1,4 +1,5 @@
 #include "modapi/item/shared_types/ItemInitializer.h"
+#include <mc/world/item/ItemInstance.h>
 #include <mc/world/level/block/ComposterBlock.h>
 
 namespace modapi::inline item {
@@ -33,7 +34,7 @@ void initCustomItem(ICustomItem& item) {
             item.mFurnaceBurnIntervalModifier = 0.05f;
         }
     }
-    item.mFurnaceXPmultiplier = item.getFurnaceXPmultiplier();
+    item.mFurnaceXPmultiplier = item.getFurnaceXPmultiplier(::ItemInstance());
     item.mIsHiddenInCommands  = item.shouldHiddenInCommands();
     item.mFrameCount          = item.getFrameCount();
     if (item.isSmithingTemplate()) {
@@ -87,7 +88,7 @@ void initCustomItem(ICustomArmorItem& item) {
             item.mFurnaceBurnIntervalModifier = 0.05f;
         }
     }
-    item.mFurnaceXPmultiplier = item.getFurnaceXPmultiplier();
+    item.mFurnaceXPmultiplier = item.getFurnaceXPmultiplier(::ItemInstance());
     item.mIsHiddenInCommands  = item.shouldHiddenInCommands();
     item.mFrameCount          = item.getFrameCount();
     if (item.isSmithingTemplate()) {

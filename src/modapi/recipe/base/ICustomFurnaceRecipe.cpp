@@ -1,11 +1,6 @@
 #include "modapi/recipe/base/ICustomFurnaceRecipe.h"
 #include "modapi/recipe/SharedTypes.h"
 
-bool operator<(Recipes::FurnaceRecipeKey const& lhs, Recipes::FurnaceRecipeKey const& rhs) { return lhs.mID < rhs.mID; }
-bool operator==(Recipes::FurnaceRecipeKey const& lhs, Recipes::FurnaceRecipeKey const& rhs) {
-    return lhs.mID == rhs.mID;
-}
-
 namespace modapi::inline recipe {
 
 ICustomFurnaceRecipe::ICustomFurnaceRecipe() = default;
@@ -27,14 +22,7 @@ CustomFurnaceRecipeBase::CustomFurnaceRecipeBase(
 }
 
 void CustomFurnaceRecipeBase::registerRecipe(::Recipes& registry) {
-    for (auto& tag : mTags) {
-        for (auto& [key, val] : *registry.mFurnaceRecipes) {
-            if (tag.getString() == key.mTag->getString() && mInput.getIdAux() == key.mID) {
-                registry.mFurnaceRecipes->erase(key);
-            }
-        }
-    }
-    registry.addFurnaceRecipeAuxData(mInput, mOutput, mTags);
+    (*registry.mFurnaceResults)[mInput.getId()][mInput.getAuxValue()] = mOutput;
 }
 
 void ICustomFurnaceRecipe::_init() {

@@ -60,7 +60,9 @@ int ICustomArmorItem::getUseDuration() const { return 0; }
     return ::Interactions::Mining::MineBlockItemEffectType::Default;
 }
 
-::CreativeItemCategory ICustomArmorItem::getCreativeCategory() const { return ::CreativeItemCategory::Items; }
+::SharedTypes::CreativeItemCategory ICustomArmorItem::getCreativeCategory() const {
+    return ::SharedTypes::CreativeItemCategory::Items;
+}
 
 ::std::string ICustomArmorItem::getCreativeGroup() const { return {}; }
 
@@ -68,7 +70,7 @@ bool ICustomArmorItem::isFuel() const { return false; }
 
 float ICustomArmorItem::getFurnaceBurnInterval() const { return 0; }
 
-float ICustomArmorItem::getFurnaceXPmultiplier() const { return 0; }
+float ICustomArmorItem::getFurnaceXPmultiplier(::ItemStackBase const&) const { return 0; }
 
 ::ItemCommandVisibility ICustomArmorItem::shouldHiddenInCommands() const { return ::ItemCommandVisibility::Visible; }
 

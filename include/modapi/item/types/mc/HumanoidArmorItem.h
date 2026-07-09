@@ -1,13 +1,13 @@
 #pragma once
 
 #include "modapi/Macros.h"
-#include "mc/_HeaderOutputPredefine.h"
+#include <mc/_HeaderOutputPredefine.h>
 
 // auto generated inclusion list
-#include "mc/deps/shared_types/legacy/LevelSoundEvent.h"
-#include "mc/deps/shared_types/legacy/actor/ActorLocation.h"
-#include "mc/deps/shared_types/legacy/actor/ArmorSlot.h"
-#include "mc/world/item/Item.h"
+#include <mc/deps/shared_types/legacy/LevelSoundEvent.h>
+#include <mc/deps/shared_types/legacy/actor/ActorLocation.h>
+#include <mc/deps/shared_types/legacy/actor/ArmorSlot.h>
+#include <mc/world/item/Item.h>
 
 // auto generated forward declare list
 // clang-format off
@@ -53,41 +53,56 @@ public:
     public:
         // member variables
         // NOLINTBEGIN
-        int     mDurabilityMultiplier;
-        int mSlotProtections[4];
-        int     mToughnessValue;
-        int     mEnchantmentValue;
-        float   mKnockbackResistance;
+        int   mDurabilityMultiplier;
+        int   mSlotProtections[4];
+        int   mToughnessValue;
+        int   mEnchantmentValue;
+        float mKnockbackResistance;
         // NOLINTEND
     };
 
 public:
     // member variables
     // NOLINTBEGIN
-    ::SharedTypes::Legacy::ArmorSlot mSlot;
-    int mDefense;
-    int mModelIndex;
+    ::SharedTypes::Legacy::ArmorSlot          mSlot;
+    int                                       mDefense;
+    int                                       mModelIndex;
     ::HumanoidArmorItem::ArmorMaterial const& mArmorType;
     bool                                      mCurrentVersionAllowsTrim;
     // NOLINTEND
 
 public:
     // prevent constructor by default
-MOD_NDAPI HumanoidArmorItem(std::string const& name, HumanoidArmorItem::Tier armorTier);
+    MOD_NDAPI          HumanoidArmorItem(std::string const& name, HumanoidArmorItem::Tier armorTier);
     HumanoidArmorItem& operator=(HumanoidArmorItem const&);
     HumanoidArmorItem(HumanoidArmorItem const&);
     HumanoidArmorItem();
+
+public:
+    HumanoidArmorItem(
+        std::string const&                   nameId,
+        short                                id,
+        SharedTypes::Legacy::ArmorSlot const slot,
+        int const                            defense,
+        int const                            modelIndex,
+        ArmorMaterial const&                 armorType,
+        bool                                 allowTrim
+    )
+    : Item(nameId, id),
+      mSlot(slot),
+      mDefense(defense),
+      mModelIndex(modelIndex),
+      mArmorType(armorType),
+      mCurrentVersionAllowsTrim(allowTrim) {}
 
 public:
     // virtual functions
     // NOLINTBEGIN
     virtual bool isHumanoidArmor() const /*override*/;
 
-    virtual bool isValidRepairItem(
-        ::ItemStackBase const&   source,
-        ::ItemStackBase const&   repairItem,
-        ::BaseGameVersion const& baseGameVersion
-    ) const /*override*/;
+    virtual bool
+    isValidRepairItem(::ItemStackBase const& repairItem, ::ItemStackBase const&, ::BaseGameVersion const&) const
+        /*override*/;
 
     virtual int getEnchantSlot() const /*override*/;
 
@@ -135,14 +150,33 @@ public:
     virtual ::ItemStack& use(::ItemStack& item, ::Player& player) const /*override*/;
 
     virtual int buildIdAux(short auxValue, ::CompoundTag const* userData) const /*override*/;
-
-    virtual ~HumanoidArmorItem() /*override*/ = default;
     // NOLINTEND
 
 public:
     // member functions
     // NOLINTBEGIN
+    MCAPI HumanoidArmorItem(
+        ::std::string const&                      name,
+        short                                     id,
+        ::HumanoidArmorItem::ArmorMaterial const& armorType,
+        int                                       icon,
+        ::SharedTypes::Legacy::ArmorSlot          slot,
+        bool                                      currentVersionAllowsTrim
+    );
+
     MCAPI ::ItemInstance getTierItem() const;
+    // NOLINTEND
+
+public:
+    // static functions
+    // NOLINTBEGIN
+#ifdef LL_PLAT_C
+    MCAPI static void ResetDefaultLeatherColor();
+
+    MCAPI static void SetDefaultLeatherColor(int newDefaultLeatherColor);
+#endif
+
+    MCAPI static bool isDamageable(::ItemDescriptor const& item);
     // NOLINTEND
 
 public:
@@ -170,15 +204,25 @@ public:
     // NOLINTEND
 
 public:
+    // constructor thunks
+    // NOLINTBEGIN
+    MCAPI void* $ctor(
+        ::std::string const&                      name,
+        short                                     id,
+        ::HumanoidArmorItem::ArmorMaterial const& armorType,
+        int                                       icon,
+        ::SharedTypes::Legacy::ArmorSlot          slot,
+        bool                                      currentVersionAllowsTrim
+    );
+    // NOLINTEND
+
+public:
     // virtual function thunks
     // NOLINTBEGIN
     MCFOLD bool $isHumanoidArmor() const;
 
-    MCAPI bool $isValidRepairItem(
-        ::ItemStackBase const&   source,
-        ::ItemStackBase const&   repairItem,
-        ::BaseGameVersion const& baseGameVersion
-    ) const;
+    MCAPI bool
+    $isValidRepairItem(::ItemStackBase const& repairItem, ::ItemStackBase const&, ::BaseGameVersion const&) const;
 
     MCAPI int $getEnchantSlot() const;
 

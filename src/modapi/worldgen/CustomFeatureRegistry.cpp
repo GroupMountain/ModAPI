@@ -80,8 +80,15 @@ LL_TYPE_INSTANCE_HOOK(
     reinterpret_cast<PropertiesSettings*>(res)->mClientSideGenerationEnabled = false;
     return res;
 }
-LL_TYPE_INSTANCE_HOOK(FeatureRegistryCtorHook, HookPriority::Normal, FeatureRegistry, &FeatureRegistry::$ctor, void*) {
-    auto res                           = origin();
+LL_TYPE_INSTANCE_HOOK(
+    FeatureRegistryCtorHook,
+    HookPriority::Normal,
+    FeatureRegistry,
+    &FeatureRegistry::$ctor,
+    void*,
+    ::Bedrock::NonOwnerPointer<::LinkedAssetValidator> validator
+) {
+    auto res                           = origin(validator);
     GlobalData::getInstance().registry = (decltype(GlobalData::getInstance().registry))res;
     return res;
 }

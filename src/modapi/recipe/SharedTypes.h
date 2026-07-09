@@ -66,7 +66,8 @@ struct ICustomRecipe::Ingredient::Impl {
     }
 
     ::RecipeIngredient serialize() const {
-        return mIsRecipeTag ? ::RecipeIngredient(::ItemTag(mType), mCount) : ::RecipeIngredient(mType, mAux, mCount);
+        return mIsRecipeTag ? ::RecipeIngredient(::ItemDescriptor(::ItemTag(mType)), mCount)
+                            : ::RecipeIngredient(mType, mAux, mCount);
     }
 };
 
