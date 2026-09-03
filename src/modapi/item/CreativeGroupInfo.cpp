@@ -5,6 +5,4 @@
 
 Bedrock::EnableNonOwnerReferences::~EnableNonOwnerReferences() = default;
 
-CreativeGroupInfo::CreativeGroupInfo() = default;
-
 CreativeGroupInfo::~CreativeGroupInfo() = default;

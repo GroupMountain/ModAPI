@@ -134,20 +134,21 @@ std::string ICustomItem::getInteractButtonText() const { return "action.interact
 std::string ICustomItem::getInteractText(::Player const&) const { return getInteractButtonText(); }
 
 void ICustomItem::initServer(
-    ::ItemComprehensiveLoadResult&& data,
-    ::SemVersion const&             documentVersion,
-    ::PackLoadContext&              packLoadContext
+    ::SharedTypes::v1_26_30::ItemDocument&&         data,
+    ::SemVersion const&                             documentVersion,
+    ::Experiments const&                            experiments,
+    ::std::optional<::LegacyEventItemComponentData> legacyEventData
 ) {
-    Item::initServer(std::move(data), documentVersion, packLoadContext);
+    Item::initServer(std::move(data), documentVersion, experiments, legacyEventData);
 }
 
 void ICustomItem::initClient(
-    ::ItemComprehensiveLoadResult&& data,
-    ::SemVersion const&             documentVersion,
-    ::PackLoadContext&              packLoadContext,
+    ::SharedTypes::v1_26_30::ItemDocument&& data,
+    ::SemVersion const&                     documentVersion,
+    ::Experiments const&                    experiments,
     ::std::optional<::ItemIconInfo> (*iconFactory)(::std::string const&, int)
 ) {
-    Item::initClient(std::move(data), documentVersion, packLoadContext, iconFactory);
+    Item::initClient(std::move(data), documentVersion, experiments, iconFactory);
 }
 
 } // namespace modapi::inline item

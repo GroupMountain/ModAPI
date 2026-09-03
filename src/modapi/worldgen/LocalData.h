@@ -2,6 +2,8 @@
 #include <mc/world/level/BlockSource.h>
 #include <mc/world/level/chunk/LevelChunk.h>
 
+class Random;
+
 namespace modapi::inline worldgen {
 
 struct LocalData {

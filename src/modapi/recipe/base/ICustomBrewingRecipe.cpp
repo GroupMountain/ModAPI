@@ -1,6 +1,19 @@
 #include "modapi/recipe/base/ICustomBrewingRecipe.h"
 #include "modapi/recipe/SharedTypes.h"
 #include <mc/world/item/Item.h>
+#include <mc/world/item/ItemDescriptor.h>
+#include <mc/world/item/ItemStackBase.h>
+
+namespace {
+
+PotionBrewing::Ingredient makePotionIngredient(std::string_view itemName, short aux) {
+    PotionBrewing::Ingredient result{};
+    result.mItemId = ::ItemDescriptor(itemName, 0).getItem()->mId;
+    result.mData   = aux;
+    return result;
+}
+
+} // namespace
 
 
 namespace modapi::inline recipe {
@@ -27,9 +40,9 @@ CustomBrewingRecipeBase::CustomBrewingRecipeBase(
 void CustomBrewingRecipeBase::registerRecipe() {
     if (mInput.pImpl->mAux == 32767 && mOutput.pImpl->mAux == 0) {
         PotionBrewing::addContainerRecipe(
-            *ItemInstance(mInput.pImpl->mType).getItem(),
-            PotionBrewing::Ingredient(ItemInstance(mReagent.pImpl->mType).getId(), mReagent.pImpl->mAux),
-            *ItemInstance(mOutput.pImpl->mType).getItem()
+            *::ItemDescriptor(mInput.pImpl->mType, 0).getItem(),
+            makePotionIngredient(mReagent.pImpl->mType, mReagent.pImpl->mAux),
+            *::ItemDescriptor(mOutput.pImpl->mType, 0).getItem()
         );
     } else {
         if (mReagent.pImpl->mAux == 32767) {
@@ -37,16 +50,16 @@ void CustomBrewingRecipeBase::registerRecipe() {
         }
         for (auto& recipe : PotionBrewing::mPotionMixes()) {
             if (recipe.mFrom.sameItem(mInput.pImpl->serialize(), true)
-                && recipe.mIngredient.mItemId == ::RecipeIngredient(mReagent.pImpl->mType, 0, 1).getId()
+                && recipe.mIngredient.mItemId == makePotionIngredient(mReagent.pImpl->mType, 0).mItemId
                 && recipe.mIngredient.mData == mReagent.pImpl->mAux) {
-                recipe.mTo = ::RecipeIngredient(mOutput.pImpl->mType, 0, 1);
+                recipe.mTo = ::ItemDescriptor(mOutput.pImpl->mType, mOutput.pImpl->mAux);
                 return;
             }
         }
         PotionBrewing::addPotionMix(
-            ItemDescriptor(mInput.pImpl->mType, mInput.pImpl->mAux),
-            PotionBrewing::Ingredient(ItemInstance(mReagent.pImpl->mType).getId(), mReagent.pImpl->mAux),
-            ItemDescriptor(mOutput.pImpl->mType, mOutput.pImpl->mAux)
+            ::ItemDescriptor(mInput.pImpl->mType, mInput.pImpl->mAux),
+            makePotionIngredient(mReagent.pImpl->mType, mReagent.pImpl->mAux),
+            ::ItemDescriptor(mOutput.pImpl->mType, mOutput.pImpl->mAux)
         );
     }
 }

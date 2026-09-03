@@ -85,10 +85,10 @@ void ICustomToolItem::executeEvent(::ItemStackBase& item, ::std::string const& e
         anipkt.mData      = 1.0f;
         anipkt.sendToClients();
         LevelSoundEventPacket lsepkt;
-        lsepkt.mEventId  = ::SharedTypes::Legacy::LevelSoundEvent::ItemUseOn;
-        lsepkt.mPos      = rp.mBlockPos->center();
-        lsepkt.mData     = static_cast<int>(rp.mBlock->mNetworkId);
-        lsepkt.mIsGlobal = false;
+        lsepkt.mSoundEvent->mSound = ::SharedTypes::Legacy::LevelSoundEvent::ItemUseOn;
+        lsepkt.mPos                = rp.mBlockPos->center();
+        lsepkt.mData               = static_cast<int>(rp.mBlock->mNetworkId);
+        lsepkt.mIsGlobal           = false;
         lsepkt.sendToClients();
     }
 }

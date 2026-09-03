@@ -20,6 +20,7 @@
 #include <mc/deps/json/Reader.h>
 #include <mc/deps/json/Value.h>
 #include <mc/network/packet/CraftingDataPacket.h>
+#include <mc/network/packet/MaterialReducerEntryOutput.h>
 #include <mc/resources/MinEngineVersion.h>
 #include <mc/world/inventory/network/crafting/RecipeNetIdTag.h>
 #include <mc/world/item/SortItemInstanceIdAux.h>

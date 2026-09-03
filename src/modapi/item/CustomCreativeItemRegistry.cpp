@@ -20,7 +20,6 @@ public:
 
 bool operator==(CreativeItemNetId const& lhs, CreativeItemNetId const& rhs) { return lhs.mRawId == rhs.mRawId; }
 
-::CreativeGroupInfo& ::CreativeGroupInfo::operator=(::CreativeGroupInfo const&) = default;
 
 namespace modapi::inline item {
 
@@ -34,7 +33,7 @@ CustomCreativeItemRegistry& CustomCreativeItemRegistry::getInstance() {
     static CustomCreativeItemRegistry instance;
     if (!instance.pImpl->mRegistry) {
         if (auto level = ll::service::getLevel()) {
-            instance.pImpl->mRegistry = level->getItemRegistry()._lockRegistry()->mCreativeItemRegistry.get();
+            instance.pImpl->mRegistry = level->getItemRegistry().getCreativeItemRegistry().get();
         }
     }
     return instance;

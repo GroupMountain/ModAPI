@@ -46,10 +46,7 @@ CustomShapedMultiRecipeBase::assemble(::CraftingContainer& container, ::Crafting
             for (auto& item : *container.mItems) {
                 if (!item.isNull()) {
                     auto ingredientItem = ingredient.pImpl->serialize();
-                    if (ingredientItem.sameItem(
-                            ItemDescriptor(*item.getItem(), item.getAuxValue()),
-                            (ingredientItem.getAuxValue() != 32767)
-                        )) {
+                    if (ingredientItem.sameItem(item.getDescriptor(), (ingredientItem.getAuxValue() != 32767))) {
                         inputInfo[key].push_back(&item);
                     }
                 }

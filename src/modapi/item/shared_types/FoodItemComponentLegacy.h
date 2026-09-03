@@ -26,9 +26,7 @@ public:
         Effect& operator=(Effect const&);
         Effect(Effect const&);
         Effect();
-
-    public:
-        MCAPI ~Effect();
+        ~Effect();
     };
 
 public:
@@ -59,7 +57,7 @@ public:
 
     virtual ::Item const* eatItem(::ItemStack& instance, ::Actor& actor, ::Level& level);
 
-    virtual void use(bool& result, ::ItemStack& item, ::Player& player);
+    virtual void use(::ItemOnUseResult& result, ::ItemStack& item, ::Player& player);
 
     virtual ::Item const* useTimeDepleted(
         ::ItemUseMethod& itemUseMethod,
@@ -78,7 +76,7 @@ public:
 
     MCAPI void _loadRemoveEffects(::Json::Value const& removeEffectsData);
 
-    MCAPI ::std::unique_ptr<::CompoundTag> buildNetworkTag() const;
+    ::std::unique_ptr<::CompoundTag> buildNetworkTag() const;
 
     MCAPI bool init(::Json::Value const& data, ::MolangVersion);
 

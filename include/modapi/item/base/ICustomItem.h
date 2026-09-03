@@ -5,10 +5,13 @@
 #include "modapi/item/types/RepairItems.h"
 #include <mc/deps/nbt/CompoundTag.h>
 #include <mc/deps/shared_types/legacy/item/UseAnimation.h>
+#include <mc/deps/shared_types/v1_26_30/item/ItemDocument.h>
+#include <mc/world/actor/DefinitionEvent.h>
 #include <mc/world/item/Item.h>
 #include <mc/world/item/ItemComprehensiveLoadResult.h>
 #include <mc/world/item/ItemIconInfo.h>
 #include <mc/world/item/Rarity.h>
+#include <mc/world/item/components/LegacyEventItemComponentData.h>
 #include <mc/world/item/enchanting/Enchant.h>
 
 
@@ -112,15 +115,16 @@ public:
     MOD_API virtual void _init();
 
     MOD_API void initServer(
-        ::ItemComprehensiveLoadResult&& data,
-        ::SemVersion const&             documentVersion,
-        ::PackLoadContext&              packLoadContext
+        ::SharedTypes::v1_26_30::ItemDocument&&         data,
+        ::SemVersion const&                             documentVersion,
+        ::Experiments const&                            experiments,
+        ::std::optional<::LegacyEventItemComponentData> legacyEventData
     ) override;
 
     MOD_API void initClient(
-        ::ItemComprehensiveLoadResult&& data,
-        ::SemVersion const&             documentVersion,
-        ::PackLoadContext&              packLoadContext,
+        ::SharedTypes::v1_26_30::ItemDocument&& data,
+        ::SemVersion const&                     documentVersion,
+        ::Experiments const&                    experiments,
         ::std::optional<::ItemIconInfo> (*iconFactory)(::std::string const&, int)
     ) override;
 };

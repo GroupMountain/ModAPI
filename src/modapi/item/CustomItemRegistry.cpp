@@ -35,7 +35,7 @@ int registerCommandItemEnum(
     std::vector<std::pair<std::string, uint64>> converted;
     converted.reserve(values.size());
     for (auto& [str, item] : values) {
-        converted.emplace_back(str, static_cast<uint64>(item));
+        converted.emplace_back(str, item.mVersionId);
     }
     const auto id     = registry->mEnumLookup["Item"];
     auto       parser = registry->mEnums[id].parse;
@@ -88,7 +88,7 @@ LL_STATIC_HOOK(
 ) {
     origin(ctx, itemRegistry, baseGameVersion, experiments);
     auto& manager     = *CustomItemRegistry::getInstance().pImpl;
-    manager.mRegistry = itemRegistry._lockRegistry().get();
+    manager.mRegistry = itemRegistry.mWeakRegistry.lock().get();
     auto& registry    = *manager.mRegistry;
     for (auto& func : manager.mPendingItems) {
         try {
@@ -149,13 +149,15 @@ CustomItemRegistry& CustomItemRegistry::_registerItem(std::function<std::unique_
                         ll::service::getCommandRegistry().as_ptr(),
                         "Item",
                         {
-                            {sharedItem->mFullName->getString(), ::CommandItem{sharedItem->mId, 1, false}}
+                            {sharedItem->mFullName->getString(), {{{sharedItem->mId, true, false}}}}
                     }
                     );
                 }
                 if ((int)sharedItem->mCreativeCategory >= 1 && (int)sharedItem->mCreativeCategory <= 4) {
+                    ::ItemInstance creativeItem;
+                    creativeItem.reinit(sharedItem->getSerializedName(), 1, 0);
                     CustomCreativeItemRegistry::getInstance().registerCreativeItem(
-                        ::ItemInstance(sharedItem->getSerializedName()),
+                        std::move(creativeItem),
                         sharedItem->mCreativeCategory,
                         *sharedItem->mCreativeGroup
                     );
@@ -177,7 +179,7 @@ CustomItemRegistry& CustomItemRegistry::getInstance() {
     static CustomItemRegistry instance;
     if (!instance.pImpl->mRegistry) {
         if (auto level = ll::service::getLevel()) {
-            instance.pImpl->mRegistry = level->getItemRegistry()._lockRegistry().get();
+            instance.pImpl->mRegistry = level->getItemRegistry().mWeakRegistry.lock().get();
         }
     }
     return instance;
@@ -212,7 +214,7 @@ LL_TYPE_INSTANCE_HOOK(
         auto& dataFlagComponent = itemActor->getEntityContext().getOrAddComponent<ActorDataFlagComponent>();
         dataFlagComponent.mValue.set(
             std::to_underlying(ActorFlags::FireImmune),
-            itemActor->item().getItem()->mFireResistant
+            itemActor->item().mItem->mFireResistant
         );
         itemActor->getEntityContext().mEnTTRegistry.emplace<ActorDataDirtyFlagsComponent>(
             itemActor->getEntityContext().mEntity

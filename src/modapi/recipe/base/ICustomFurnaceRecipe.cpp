@@ -14,7 +14,7 @@ CustomFurnaceRecipeBase::CustomFurnaceRecipeBase(
     ::ItemInstance const&            output,
     std::vector<std::string> const&  craftingTags
 )
-: mInput(ItemInstance(input.pImpl->mType, input.pImpl->mCount, input.pImpl->mAux)),
+: mInput(::ItemStackBase(input.pImpl->mType, input.pImpl->mCount, input.pImpl->mAux)),
   mOutput(output) {
     for (auto& tag : craftingTags) {
         mTags.emplace_back(tag);

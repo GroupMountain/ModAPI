@@ -56,13 +56,13 @@ void ICustomFoodItem::_init() {
     bool          ambient,
     bool          animation
 ) {
-    auto result                             = ::MobEffectInstance((int)effectType);
+    auto result                             = ::MobEffectInstance((uint)effectType, EffectDuration(durationTicks));
     result.mDuration                        = EffectDuration(durationTicks);
     result.mAmplifier                       = amplifier;
     result.mEffectVisible                   = visible;
     result.mAmbient                         = ambient;
     result.mDisplayOnScreenTextureAnimation = animation;
-    return std::move(result);
+    return result;
 }
 
 } // namespace modapi::inline item

@@ -61,7 +61,7 @@ Block const& getBlock(LevelChunk const* chunk, BlockPos const& pos, uchar layer)
     case 0:
         return chunk->getBlock(chunkPos);
     case 1:
-        return chunk->getExtraBlock(chunkPos);
+        return chunk->mDimension.getBlockSourceFromMainChunkSource().getExtraBlock(pos);
     default:
         throw std::out_of_range("layer out of range.");
     }
