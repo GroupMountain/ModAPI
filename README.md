@@ -16,9 +16,8 @@ ModAPI 是 GroupMountain 维护的 Minecraft Bedrock Dedicated Server 模组开�
 - [xmake](https://xmake.io/)
 - C++20 编译环境
 - 依赖包：
-  - LeviLamina `26.10.*`
-  - LeviBuildScript `0.6.0`
-  - GMLIB `26.10.0`
+  - LeviLamina `26.40.*`
+  - GMLIB `26.40.0`
 
 依赖仓库已在 `xmake.lua` 中配置：
 
@@ -54,7 +53,7 @@ xmake.lua         xmake 构建配置
 
 - 公开接口头文件位于 `include/modapi/`。
 - 构建前会自动执行头文件包含修正和格式化脚本。
-- 版本信息由 `scripts/get-version-info.lua` 读取并注入到 `include/modapi/Version.h.in` 生成的配置头中。
+- 版本信息由 `scripts/get-version-info.lua` 从最近的 git tag（`v<major>.<minor>.<patch>`）读取，注入到 `include/modapi/Version.h.in` 生成的配置头以及发布产物的 `manifest.json` 中。因此构建前需要先有对应 tag，未打 tag 时会沿用上一个已发布版本号。
 - 发布产物的 `manifest.json` 由 `scripts/generate-manifest.lua` 生成。
 
 ## 许可证
