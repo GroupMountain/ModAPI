@@ -20,7 +20,7 @@ else
     gmlib_dir = path.absolute(gmlib_dir)
 end
 
-add_requires("levilamina 161f166da9aa59272b4ea54d2c73b4bf33ec7d70", {configs = {target_type = "server"}})
+add_requires("levilamina 26.40.*", {configs = {target_type = "server"}})
 add_requires("zstr 1.0.8", "minizip-ng 4.0.9")
 if gmlib_dir then
 target("static")

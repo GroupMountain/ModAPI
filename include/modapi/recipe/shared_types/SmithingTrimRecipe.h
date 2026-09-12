@@ -1,14 +1,16 @@
 #pragma once
-#include <mc/world/item/crafting/Recipe.h>
+#include "modapi/recipe/shared_types/ShapelessRecipe.h"
 
+// Mirrors mc/world/item/crafting/SmithingTrimRecipe.h of LeviLamina 26.40.0.
+// The 26.40.0 header guards the constructor with LL_PLAT_C (client only) because the server
+// binary no longer exports the symbol, so a default constructor is defined here instead; the
+// members of the recipe are filled in by makeCustomSmithingRecipe.
 class SmithingTrimRecipe : public ::ShapelessRecipe {
 public:
-    ::Recipe::ResultList mRuntimeResultList;
+    ::Recipe::ResultList mRuntimeResults;
 
 public:
-    SmithingTrimRecipe& operator=(SmithingTrimRecipe const&);
-    SmithingTrimRecipe(SmithingTrimRecipe const&);
-    SmithingTrimRecipe();
+    SmithingTrimRecipe() : ShapelessRecipe() {}
 
 public:
     bool matches(::CraftingContainer const& craftingContainer, ::CraftingContext const& craftingContext) const override;
@@ -19,15 +21,6 @@ public:
     bool hasDataDrivenResult() const override;
 
     ~SmithingTrimRecipe() override = default;
-
-public:
-    MCAPI SmithingTrimRecipe(
-        ::std::string const&      recipeId,
-        ::RecipeIngredient const& templateIngredient,
-        ::RecipeIngredient const& baseIngredient,
-        ::RecipeIngredient const& additionIngredient,
-        ::HashedString const&     tag
-    );
 
 public:
     MCAPI static ::mce::UUID const& ID();

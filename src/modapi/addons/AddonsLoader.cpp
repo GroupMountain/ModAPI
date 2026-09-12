@@ -13,13 +13,13 @@
 #include <mc/resources/IRepositoryFactory.h>
 #include <mc/resources/Pack.h>
 #include <mc/resources/PackInstance.h>
-#include <mc/resources/PackManifest.h>
 #include <mc/resources/PackSettingsFactory.h>
 #include <mc/resources/PackSourceFactory.h>
 #include <mc/resources/RepositorySources.h>
 #include <mc/resources/ResourcePack.h>
 #include <mc/resources/ResourcePackRepository.h>
 #include <mc/resources/ResourcePackStack.h>
+#include <mc/scripting/modules/PackManifest.h>
 
 namespace modapi::inline addons {
 
@@ -110,7 +110,7 @@ LL_STATIC_HOOK(
     HookPriority::Normal,
     &ResourcePackStack::deserialize,
     std::unique_ptr<ResourcePackStack>,
-    std::istream&                                                                 fileStream,
+    std::string_view                                                              fileData,
     gsl::not_null<Bedrock::NonOwnerPointer<IResourcePackRepository const>> const& repo,
     std::optional<std::string>                                                    levelId
 ) {
@@ -121,7 +121,7 @@ LL_STATIC_HOOK(
         if (thread.joinable()) thread.join();
     }
 
-    auto stack = origin(fileStream, repo, std::move(levelId));
+    auto stack = origin(fileData, repo, std::move(levelId));
     for (auto& id : impl->mPackListCache) {
         auto pack = resourcePackRepository->getResourcePackForPackId(PackIdVersion::fromString(id));
         stack->add(

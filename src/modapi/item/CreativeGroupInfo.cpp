@@ -4,5 +4,3 @@
 // Definitions for symbols not exported in LeviLamina 26.20.0 server
 
 Bedrock::EnableNonOwnerReferences::~EnableNonOwnerReferences() = default;
-
-CreativeGroupInfo::~CreativeGroupInfo() = default;

@@ -91,6 +91,41 @@ struct ICustomRecipe::UnlockingRequirement::Impl {
     }
 };
 
+/**
+ * @brief Builds a smithing recipe for the server.
+ *
+ * LeviLamina 26.40.0 only declares the SmithingTransformRecipe / SmithingTrimRecipe constructors
+ * for the client (LL_PLAT_C), the server binary no longer exports them, so the recipes are put
+ * together by hand here. The fields replicate what the removed constructor used to do: the three
+ * ingredients are the template, the base and the addition, the crafting grid is 3x1 and the recipe
+ * carries the fixed UUID of its class. The vanilla constructor also stamped the 1.20.10 recipe data
+ * version; that is only consulted while loading recipes from disk, so it stays default here.
+ */
+template <class T>
+std::unique_ptr<T> makeCustomSmithingRecipe(
+    std::string_view                 craftingTag,
+    std::string_view                 recipeId,
+    ICustomRecipe::Ingredient const& smithingTemplate,
+    ICustomRecipe::Ingredient const& baseIngredient,
+    ICustomRecipe::Ingredient const& additionIngredient,
+    ::ItemInstance const*            result = nullptr
+) {
+    auto recipe       = std::make_unique<T>();
+    recipe->mRecipeId = std::string(recipeId);
+    recipe->mMyId     = T::ID();
+    recipe->mTag      = ::HashedString(craftingTag);
+    recipe->mWidth    = 3;
+    recipe->mHeight   = 1;
+    recipe->mMyIngredients->push_back(smithingTemplate.pImpl->serialize());
+    recipe->mMyIngredients->push_back(baseIngredient.pImpl->serialize());
+    recipe->mMyIngredients->push_back(additionIngredient.pImpl->serialize());
+    recipe->mResults->mResultsAreLoaded = true;
+    if (result) {
+        recipe->mResults->mResults->push_back(*result);
+    }
+    return recipe;
+}
+
 class CustomShapedRecipeBase : public ::ShapedRecipe {
 public:
     CustomShapedRecipeBase(

@@ -640,7 +640,9 @@ bool CustomRecipeRegistry::unregisterRecipe(std::string const& recipeId, bool up
 
 void CustomRecipeRegistry::updateClientRecipes() {
     auto level = gmlib::GMLevel::getInstance();
-    level->sendPacketRawToClients(*::CraftingDataPacket::prepareFromRecipes(level->getRecipes(), false));
+    level->sendPacketRawToClients(
+        ::CraftingDataPacket(::CraftingDataPacketPayload::fromRecipes(level->getRecipes(), false))
+    );
 }
 
 CustomRecipeRegistry& CustomRecipeRegistry::registerRecipeFromMemoryJson(std::string const& rawJson) {

@@ -6,21 +6,20 @@ namespace modapi::inline recipe {
 ICustomSmithingTransformRecipe::ICustomSmithingTransformRecipe() = default;
 
 void ICustomSmithingTransformRecipe::_init() {
-    auto tags = getCraftingTags();
+    auto tags   = getCraftingTags();
+    auto result = getResult();
     pImpl->mRecipes.reserve(tags.size());
     for (auto const& tag : tags) {
-        ::Recipe::Results recipeResult;
-        recipeResult.mResultsAreLoaded = true;
-        recipeResult.mResults->push_back(getResult());
-        auto recipe = std::make_unique<::SmithingTransformRecipe>(
-            getRecipeId(),
-            getSmithingTemplate().pImpl->serialize(),
-            getBaseIngredient().pImpl->serialize(),
-            getAdditionIngredient().pImpl->serialize(),
-            std::move(recipeResult),
-            HashedString(tag)
+        pImpl->mRecipes.push_back(
+            makeCustomSmithingRecipe<::SmithingTransformRecipe>(
+                tag,
+                getRecipeId(),
+                getSmithingTemplate(),
+                getBaseIngredient(),
+                getAdditionIngredient(),
+                &result
+            )
         );
-        pImpl->mRecipes.push_back(std::move(recipe));
     }
 }
 
