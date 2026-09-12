@@ -18,6 +18,15 @@ jobs:
         with:
           python-version: "3.13"
 
+      # the LLVM that ships with the windows runner (20.x) is too old for the 26.40 headers, it
+      # fails with `invalid application of 'sizeof' to an incomplete type` while building the
+      # LeviLamina package. 23 matches the toolchain ModAPI is developed against (LeviLamina's own
+      # CI pins 22).
+      - name: Setup LLVM
+        uses: ZhongRuoyu/setup-llvm@v0
+        with:
+          llvm-version: 23
+
       - name: Update Repo
         run: xmake repo -u
 
