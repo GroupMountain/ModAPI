@@ -35,7 +35,7 @@ target("shared")
     add_includedirs(path.join(gmlib_dir, "shared", "include"), {public = true})
     add_links("GMLIB", {public = true})
 else
-    add_requires("gmlib 26.20.0")
+    add_requires("gmlib 26.40.0")
 end
 
 if not has_config("vs_runtime") then
