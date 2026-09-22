@@ -1,6 +1,7 @@
 #pragma once
 #include "modapi/item/base/ICustomArmorItem.h"
 #include "modapi/item/base/ICustomItem.h"
+#include <mc/common/WeakPtr.h>
 
 namespace modapi::inline item {
 

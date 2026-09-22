@@ -5,13 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-Since `26.10.0` the version number tracks the supported LeviLamina release: `26.40.0` is the build for LeviLamina 26.40.x.
+Since `26.10.0` the version number tracks the supported LeviLamina release: `26.51.0` is the build for LeviLamina 26.51.x.
 
 <!-- The release workflow extracts the release notes from the *first* `## [x.y.z]` section of this
      file - it does not look the tag up by version. The section of the version being released
      therefore always has to be the topmost one, directly below `[Unreleased]`. -->
 
 ## [Unreleased]
+
+## [26.51.0] - 2026-09-22
+
+### Changed
+
+- Adapted LeviLamina 26.51.x and BDS 26.51.1
+- `HumanoidArmorItem::use` and `Actor::swing` gained a `HandSlot` parameter, so `ICustomArmorItem::use` and `ICustomToolItem::executeEvent` follow
+- `Item::mAllowOffhand` became the tri-state `Item::OffhandAllowed`. `toOffhandAllowed` / `isOffhandAllowed` keep the old boolean view, and `item_properties.allow_off_hand` still carries a boolean - the 26.51 reader treats the value as one (`non-zero` is `Yes`, a missing key is `No`), so emitting the raw enum would turn `No` back into `Yes`
+- Replaced `Recipes::loadRecipe` with `Recipes::_loadRecipe`, which takes the recipe id, a `RecipeType` and a scratch `Recipes::Buffers` separately instead of a `pair<string, Json::Value>`
+- Followed the `ResourcePack::$ctor` (extra `I18n&`) and `ResourcePackRepository::$ctor` (extra `IMinecraftEventing`) hook signature changes, and read `ResourcePack::mPack` through `mImpl` now that 26.51 moved it into `ResourcePack::Impl`
+- Every hook target was re-verified against the 26.51.1 `bedrockdata` symbol database; all 15 of them still resolve, so no hook had to be re-pointed
+
+### Fixed
+
+- Restored the local `ItemInstance::ItemInstance` definition. 26.51 declares it for the client only, so the prelink no longer resolves it out of the archives
+- `CustomItemRegistry.h` includes `mc/common/WeakPtr.h` directly, the 26.51 include chain no longer pulls it in
+- `ICustomToolItem::executeEvent` passes `HandSlot::Mainhand` to `Actor::swing`; `Item::executeEvent` and `RenderParams` still carry no hand slot
 
 ## [26.40.0] - 2026-09-12
 

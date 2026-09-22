@@ -3,6 +3,18 @@
 
 namespace modapi::inline item {
 
+::Item::OffhandAllowed toOffhandAllowed(bool allowed) {
+    return allowed ? ::Item::OffhandAllowed::Yes : ::Item::OffhandAllowed::No;
+}
+
+bool isOffhandAllowed(::Item::OffhandAllowed value) {
+    // Verified against BDS 1.26.51.1: the `item_properties.allow_off_hand` reader treats the value
+    // as a boolean (`non-zero -> Yes`, `missing -> No`), so the writer has to emit 0/1 - emitting
+    // the raw enum would turn `No` (2) back into `Yes` on the round trip. `Default` is only the
+    // in-memory "unset" state and is indistinguishable from `No` on the wire.
+    return value == ::Item::OffhandAllowed::Yes;
+}
+
 // 此处不要自作聪明改成 enum_name 转 snake_case
 std::string buildEnchantSlot(::Enchant::Slot slot) {
     switch (slot) {
@@ -89,7 +101,7 @@ std::unique_ptr<::CompoundTag> buildClientComponents(ICustomArmorItem const& ite
     }
     builder["item_properties"]            = ::CompoundTag();
     auto& properties                      = builder["item_properties"];
-    properties["allow_off_hand"]          = item.mAllowOffhand;
+    properties["allow_off_hand"]          = isOffhandAllowed(item.mAllowOffhand);
     properties["can_destroy_in_creative"] = item.canDestroyInCreative();
     properties["creative_category"]       = (int)item.mCreativeCategory;
     properties["creative_group"]          = *item.mCreativeGroup;
@@ -186,7 +198,7 @@ std::unique_ptr<::CompoundTag> buildClientComponents(ICustomItem const& item) {
     }
     builder["item_properties"]            = ::CompoundTag();
     auto& properties                      = builder["item_properties"];
-    properties["allow_off_hand"]          = item.mAllowOffhand;
+    properties["allow_off_hand"]          = isOffhandAllowed(item.mAllowOffhand);
     properties["can_destroy_in_creative"] = item.canDestroyInCreative();
     properties["creative_category"]       = (int)item.mCreativeCategory;
     properties["creative_group"]          = *item.mCreativeGroup;

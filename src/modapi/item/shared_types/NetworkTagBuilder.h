@@ -8,6 +8,12 @@
 
 namespace modapi::inline item {
 
+// 26.51 replaced `Item`'s `bool mAllowOffhand` bit with the tri-state
+// `Item::OffhandAllowed`; these two keep the old boolean view of the field.
+::Item::OffhandAllowed toOffhandAllowed(bool allowed);
+
+bool isOffhandAllowed(::Item::OffhandAllowed value);
+
 // 此处不要自作聪明改成 enum_name 转 snake_case
 std::string buildEnchantSlot(::Enchant::Slot slot);
 

@@ -25,8 +25,53 @@
 #include <mc/world/inventory/network/crafting/RecipeNetIdTag.h>
 #include <mc/world/item/SortItemInstanceIdAux.h>
 #include <mc/world/item/crafting/Recipe.h>
+#include <mc/world/item/crafting/RecipeType.h>
 #include <mc/world/level/Level.h>
 #include <nlohmann/json.hpp>
+
+namespace {
+
+// 26.51 removed `Recipes::loadRecipe(pair<string, Json::Value> const&, ...)` and split it into the
+// key -> `RecipeType` lookup plus `Recipes::_loadRecipe(...)`. This mirrors the lookup table the
+// vanilla recipe loader uses (BDS 1.26.51.1: a `{char const*, size_t, RecipeType}` table, one entry
+// per key, in `RecipeType` order). The caller keeps passing the short `recipe_*` form.
+::RecipeType recipeTypeFromKey(std::string_view key) {
+    constexpr std::string_view prefix = "minecraft:";
+    if (key.starts_with(prefix)) key.remove_prefix(prefix.size());
+    if (key == "recipe_shaped") return ::RecipeType::Shaped;
+    if (key == "recipe_shapeless") return ::RecipeType::Shapeless;
+    if (key == "recipe_furnace") return ::RecipeType::Furnace;
+    if (key == "recipe_brewing_mix") return ::RecipeType::BrewingMix;
+    if (key == "recipe_brewing_container") return ::RecipeType::BrewingContainer;
+    if (key == "recipe_material_reduction") return ::RecipeType::MaterialReduction;
+    if (key == "recipe_smithing_transform") return ::RecipeType::SmithingTransform;
+    if (key == "recipe_smithing_trim") return ::RecipeType::SmithingTrim;
+    return ::RecipeType::Invalid;
+}
+
+// `_loadRecipe` takes the recipe id and type as separate arguments now; the id is the
+// `description.identifier` the old `loadRecipe` used to pull out itself.
+bool loadRecipeFromJson(
+    ::Recipes&                recipes,
+    ::RecipeType              type,
+    ::Json::Value const&      objData,
+    ::MinEngineVersion const& minEngineVersion,
+    ::SemVersion const&       formatVersion,
+    bool                      isBaseGamePack
+) {
+    if (type == ::RecipeType::Invalid) return false;
+    auto const& description = objData["description"];
+    if (!description.isObject()) return false;
+    auto const& identifier = description["identifier"];
+    if (!identifier.isString()) return false;
+    // `_loadRecipe` reuses the caller's scratch buffers between recipes, so they have to outlive
+    // the call. Recipe loading is single threaded.
+    static ::Recipes::Buffers buffers;
+    return recipes
+        ._loadRecipe(identifier.asString(""), type, objData, minEngineVersion, formatVersion, isBaseGamePack, buffers);
+}
+
+} // namespace
 
 namespace std {
 
@@ -84,7 +129,14 @@ LL_TYPE_INSTANCE_HOOK(
         ::Json::Value value;
         reader.parse(recipe.mData, value, true);
         try {
-            loadRecipe({recipe.mType, value}, manager.getMinEngineVersion(), manager.getFormatVersion(), true);
+            loadRecipeFromJson(
+                *this,
+                recipeTypeFromKey(recipe.mType),
+                value,
+                manager.getMinEngineVersion(),
+                manager.getFormatVersion(),
+                true
+            );
         } catch (...) {}
     }
     for (auto& func : manager.mPendingRecipes) {
@@ -658,8 +710,14 @@ CustomRecipeRegistry& CustomRecipeRegistry::registerRecipeFromMemoryJson(std::st
                     ::Json::Value         value;
                     reader.parse(data, value, true);
                     try {
-                        recipes
-                            .loadRecipe({type, value}, pImpl->getMinEngineVersion(), pImpl->getFormatVersion(), true);
+                        loadRecipeFromJson(
+                            recipes,
+                            recipeTypeFromKey(type),
+                            value,
+                            pImpl->getMinEngineVersion(),
+                            pImpl->getFormatVersion(),
+                            true
+                        );
                     } catch (...) {}
                 } else {
                     pImpl->mPendingJsonRecipes.emplace_back(type, data);

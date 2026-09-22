@@ -7,6 +7,7 @@
 #include <mc/world/actor/Actor.h>
 #include <mc/world/actor/ActorSwingSource.h>
 #include <mc/world/actor/RenderParams.h>
+#include <mc/world/item/HandSlot.h>
 #include <mc/world/item/ItemStackBase.h>
 #include <mc/world/item/ItemTag.h>
 #include <mc/world/level/BlockPos.h>
@@ -78,7 +79,10 @@ bool ICustomToolItem::canDestroySpecial(Block const& block) const {
 void ICustomToolItem::executeEvent(::ItemStackBase& item, ::std::string const& ev, ::RenderParams& rp) const {
     if (rp.mActor && ev == "on_tool_used" && rp.mBlock) {
         item.hurtAndBreak(1, rp.mActor);
-        rp.mActor->swing(ActorSwingSource::UseItem);
+        // 26.51 added the `HandSlot` parameter to `Actor::swing`. `Item::executeEvent` still has no
+        // hand parameter (neither does `RenderParams`), so the caller cannot know the hand - and a
+        // tool used on a block is always the main hand one.
+        rp.mActor->swing(ActorSwingSource::UseItem, ::HandSlot::Mainhand);
         AnimatePacket anipkt;
         anipkt.mAction    = AnimatePacket::Action::Swing;
         anipkt.mRuntimeId = rp.mActor->getRuntimeID();

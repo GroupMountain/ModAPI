@@ -16,8 +16,8 @@ ModAPI 是 GroupMountain 维护的 Minecraft Bedrock Dedicated Server 模组开�
 - [xmake](https://xmake.io/)
 - C++20 编译环境
 - 依赖包：
-  - LeviLamina `26.40.*`
-  - GMLIB `26.40.0`
+  - LeviLamina `26.51.*`
+  - GMLIB `26.51.0`
 
 依赖仓库已在 `xmake.lua` 中配置：
 

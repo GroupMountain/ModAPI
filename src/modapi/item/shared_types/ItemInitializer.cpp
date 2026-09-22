@@ -10,7 +10,7 @@ void initCustomItem(ICustomItem& item) {
     for (auto& tag : tags) {
         item.addTag(ItemTag(tag));
     }
-    item.mAllowOffhand         = item.allowOffhand();
+    item.mAllowOffhand         = toOffhandAllowed(item.allowOffhand());
     item.mHoverTextColorFormat = item.getHoverTextColorFormat();
     item.mBaseRarity           = item.getBaseRarity();
     item.mShouldDespawn        = item.shouldDespawn();
@@ -64,7 +64,7 @@ void initCustomItem(ICustomArmorItem& item) {
     for (auto& tag : tags) {
         item.addTag(ItemTag(tag));
     }
-    item.mAllowOffhand         = item.allowOffhand();
+    item.mAllowOffhand         = toOffhandAllowed(item.allowOffhand());
     item.mHoverTextColorFormat = item.getHoverTextColorFormat();
     item.mBaseRarity           = item.getBaseRarity();
     item.mShouldDespawn        = item.shouldDespawn();

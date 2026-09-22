@@ -135,9 +135,9 @@ std::string ICustomArmorItem::getInteractButtonText() const { return "action.int
 
 std::string ICustomArmorItem::getInteractText(::Player const&) const { return getInteractButtonText(); }
 
-::ItemStack& ICustomArmorItem::use(::ItemStack& item, ::Player& player) const {
+::ItemStack& ICustomArmorItem::use(::ItemStack& item, ::Player& player, ::HandSlot handSlot) const {
     auto  oldItem = item;
-    auto& result  = HumanoidArmorItem::use(item, player);
+    auto& result  = HumanoidArmorItem::use(item, player, handSlot);
     if (player.isCreative() && result.isNull()) {
         result = oldItem;
     }

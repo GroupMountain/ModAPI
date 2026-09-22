@@ -117,7 +117,7 @@ public:
 
     MOD_API std::string getInteractText(::Player const& player) const override;
 
-    MOD_API ::ItemStack& use(::ItemStack& item, ::Player& player) const override;
+    MOD_API ::ItemStack& use(::ItemStack& item, ::Player& player, ::HandSlot handSlot) const override;
 
     MOD_API virtual void _init();
 };

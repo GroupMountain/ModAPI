@@ -8,6 +8,8 @@
 #include <mc/deps/core/debug/log/LogArea.h>
 #include <mc/deps/core/debug/log/LogLevel.h>
 #include <mc/deps/core/file/Path.h>
+#include <mc/events/IMinecraftEventing.h>
+#include <mc/locale/I18n.h>
 #include <mc/resources/CompositePackSource.h>
 #include <mc/resources/DirectoryPackSource.h>
 #include <mc/resources/IRepositoryFactory.h>
@@ -96,10 +98,11 @@ LL_TYPE_INSTANCE_HOOK(
     ResourcePack,
     &ResourcePack::$ctor,
     void*,
+    ::I18n&                              loc,
     gsl::not_null<std::shared_ptr<Pack>> pack
 ) {
-    auto* result = origin(std::move(pack));
-    if (auto& manifest = mPack->mManifest; manifest && manifest->mPackOrigin == PackOrigin::Test) {
+    auto* result = origin(loc, std::move(pack));
+    if (auto& manifest = mImpl->mPack->mManifest; manifest && manifest->mPackOrigin == PackOrigin::Test) {
         AddonsLoader::getInstance().pImpl->mPackListCache.push_back(pack->mManifest->mIdentity->asString());
     }
     return result;
@@ -129,7 +132,8 @@ LL_STATIC_HOOK(
                 {pack},
                 0,
                 false,
-                resourcePackRepository->getPackSettingsFactory().getPackSettings(*pack->mPack->mManifest, std::nullopt)
+                resourcePackRepository->getPackSettingsFactory()
+                    .getPackSettings(*pack->mImpl->mPack->mManifest, std::nullopt)
             ),
             repo,
             false
@@ -151,6 +155,7 @@ LL_TYPE_INSTANCE_HOOK(
     Bedrock::NotNullNonOwnerPtr<Core::FilePathManager> const&         pathManager,
     Bedrock::NonOwnerPointer<PackCommand::IPackCommandPipeline>       commands,
     PackSourceFactory&                                                packSourceFactory,
+    Bedrock::NonOwnerPointer<::IMinecraftEventing>                    minecraftEventing,
     bool                                                              initAsync,
     std::unique_ptr<IRepositoryFactory>                               factory
 ) {
@@ -162,6 +167,7 @@ LL_TYPE_INSTANCE_HOOK(
         pathManager,
         std::move(commands),
         packSourceFactory,
+        std::move(minecraftEventing),
         initAsync,
         std::move(factory)
     );

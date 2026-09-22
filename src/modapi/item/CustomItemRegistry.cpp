@@ -291,7 +291,7 @@ bool CustomItemRegistry::setRepairItem(std::string_view itemName, std::string_vi
             if (auto netTag = item->buildNetworkTag()) {
                 nbt = *netTag;
             }
-            nbt["item_properties"]["allow_off_hand"]          = item->mAllowOffhand;
+            nbt["item_properties"]["allow_off_hand"]          = isOffhandAllowed(item->mAllowOffhand);
             nbt["item_properties"]["can_destroy_in_creative"] = item->canDestroyInCreative();
             nbt["item_properties"]["creative_category"]       = (int)item->mCreativeCategory;
             nbt["item_properties"]["creative_group"]          = *item->mCreativeGroup;

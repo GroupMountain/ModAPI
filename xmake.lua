@@ -20,7 +20,7 @@ else
     gmlib_dir = path.absolute(gmlib_dir)
 end
 
-add_requires("levilamina 26.40.*", {configs = {target_type = "server"}})
+add_requires("levilamina 26.51.*", {configs = {target_type = "server"}})
 add_requires("zstr 1.0.8", "minizip-ng 4.0.9")
 if gmlib_dir then
 target("static")
@@ -35,7 +35,7 @@ target("shared")
     add_includedirs(path.join(gmlib_dir, "shared", "include"), {public = true})
     add_links("GMLIB", {public = true})
 else
-    add_requires("gmlib 26.40.0")
+    add_requires("gmlib 26.51.0")
 end
 
 if not has_config("vs_runtime") then
