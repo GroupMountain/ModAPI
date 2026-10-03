@@ -1,42 +1,14 @@
 includes("rules/*.lua")
+includes("src-test/xmake.lua")
 
 add_rules("mode.debug", "mode.release")
 
 add_repositories("liteldev-repo https://github.com/LiteLDev/xmake-repo.git")
-add_repositories("groupmountain-repo https://github.com/GroupMountain/xmake-repo.git")
 
 set_toolchains("clang-cl")
 
-option("gmlib_dir")
-    set_default("")
-    set_showmenu(true)
-    set_description("Local GMLIB SDK directory (shared/ + static/); empty uses the remote package")
-option_end()
-
-local gmlib_dir = get_config("gmlib_dir")
-if type(gmlib_dir) ~= "string" or gmlib_dir == "" then
-    gmlib_dir = nil
-else
-    gmlib_dir = path.absolute(gmlib_dir)
-end
-
 add_requires("levilamina 26.51.*", {configs = {target_type = "server"}})
-add_requires("zstr 1.0.8", "minizip-ng 4.0.9")
-if gmlib_dir then
-target("static")
-    set_kind("phony")
-    add_linkdirs(path.join(gmlib_dir, "static", "lib"), {public = true})
-    add_includedirs(path.join(gmlib_dir, "static", "include"), {public = true})
-    add_links("GMLIB", {public = true})
-    add_packages("zstr", "minizip-ng", {public = true})
-target("shared")
-    set_kind("phony")
-    add_linkdirs(path.join(gmlib_dir, "shared", "lib"), {public = true})
-    add_includedirs(path.join(gmlib_dir, "shared", "include"), {public = true})
-    add_links("GMLIB", {public = true})
-else
-    add_requires("gmlib 26.51.0")
-end
+add_requires("minizip-ng 4.0.9")
 
 if not has_config("vs_runtime") then
     set_runtimes("MD")
@@ -67,12 +39,7 @@ target("ModAPI")
         "MODAPI_EXPORTS"
     )
     add_defines("LL_PLAT_S")  --TODO: check client compatibility
-    add_packages("levilamina")
-    if gmlib_dir then
-        add_deps("static", "shared")
-    else
-        add_packages("gmlib")
-    end
+    add_packages("levilamina", "minizip-ng")
     set_optimize("aggressive")
     set_exceptions("none")
     set_kind("shared")
@@ -96,7 +63,7 @@ target("ModAPI")
     end)
 
     before_build(function (target) 
-        os.exec("python ./scripts/include_correction.py ./ --internal include src build/config --silent")
+        os.exec("python ./scripts/include_correction.py ./ --internal include src build/config src-test --silent")
         os.exec("python ./scripts/format_all.py --silent")
     end)
 

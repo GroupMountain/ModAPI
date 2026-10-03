@@ -143,8 +143,11 @@ def process_file(
             new_lines.append(original_line)
             continue
 
+        # `$` matches *before* a trailing newline, so `suffix` never carries the line ending and
+        # rebuilding the line without it would glue the next line onto this one.
+        line_ending = original_line[len(original_line.rstrip("\r\n")) :]
         new_line = (
-            f"{prefix}{correct_quotes[0]}{new_header_path}{correct_quotes[1]}{suffix}"
+            f"{prefix}{correct_quotes[0]}{new_header_path}{correct_quotes[1]}{suffix}{line_ending}"
         )
 
         changes.append(

@@ -1,5 +1,5 @@
 #pragma once
-#include "modapi/recipe/CustomRecipeRegistry.h"
+#include "modapi/recipe/RecipeRegistry.h"
 #include "modapi/recipe/base/ICustomRecipe.h"
 #include "modapi/recipe/base/ICustomShapedRecipe.h"
 #include "modapi/recipe/shared_types/PotionBrewing.h"

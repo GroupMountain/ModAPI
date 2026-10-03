@@ -1,87 +1,17 @@
 #include "modapi/item/base/ICustomToolItem.h"
-#include <mc/deps/core/math/Vec3.h>
-#include <mc/deps/core/string/HashedString.h>
-#include <mc/legacy/ActorRuntimeID.h>
-#include <mc/network/packet/AnimatePacket.h>
-#include <mc/network/packet/LevelSoundEventPacket.h>
-#include <mc/world/actor/Actor.h>
-#include <mc/world/actor/ActorSwingSource.h>
-#include <mc/world/actor/RenderParams.h>
-#include <mc/world/item/HandSlot.h>
-#include <mc/world/item/ItemStackBase.h>
-#include <mc/world/item/ItemTag.h>
-#include <mc/world/level/BlockPos.h>
-#include <mc/world/level/block/Block.h>
+
+// The parts of the shim that build engine objects stay here rather than in the header: the engine does not export every
+// constructor involved (`LevelSoundEventPacketPayload`'s, for one), so a mod's translation unit could not link them.
+// The template member that needs this is a one line call.
 
 namespace modapi::inline item {
 
-ICustomToolItem::ICustomToolItem(std::string const& identifier) : ICustomItem(identifier) {
-    addTag(ItemTag{ItemTag{"minecraft:is_tool"}});
-}
-
-bool ICustomToolItem::isSword() const { return false; }
-
-bool ICustomToolItem::isAxe() const { return false; }
-
-bool ICustomToolItem::isPickaxe() const { return false; }
-
-bool ICustomToolItem::isShovel() const { return false; }
-
-bool ICustomToolItem::isHoe() const { return false; }
-
-bool ICustomToolItem::isHandEquipped() const { return true; }
-
-uint8_t ICustomToolItem::getItemMaxStackSize() const { return 1; }
-
-bool ICustomToolItem::canDestroyInCreative() const { return !isSword(); }
-
-::SharedTypes::CreativeItemCategory ICustomToolItem::getCreativeCategory() const {
-    return ::SharedTypes::CreativeItemCategory::Equipment;
-}
-
-std::string ICustomToolItem::getCreativeGroup() const {
-    if (isSword()) return "itemGroup.name.sworde";
-    if (isAxe()) return "itemGroup.name.axe";
-    if (isPickaxe()) return "itemGroup.name.pickaxe";
-    if (isShovel()) return "itemGroup.name.shovel";
-    if (isHoe()) return "itemGroup.name.hoe";
-    return ICustomItem::getCreativeGroup();
-}
-
-Interactions::Mining::MineBlockItemEffectType ICustomToolItem::getMineBlockItemEffectType() const {
-    return Interactions::Mining::MineBlockItemEffectType::DiggerItem;
-}
-
-bool ICustomToolItem::isDiggerItem() const { return true; }
-
-bool ICustomToolItem::canDestroySpecial(Block const& block) const {
-    bool result = ICustomItem::canDestroySpecial(block);
-    if (!result) {
-        if (isSword()) {
-            result = result || block.hasTag(HashedString("minecraft:is_sword_item_destructible"));
-        }
-        if (isAxe()) {
-            result = result || block.hasTag(HashedString("minecraft:is_axe_item_destructible"));
-        }
-        if (isPickaxe()) {
-            result = result || block.hasTag(HashedString("minecraft:is_pickaxe_item_destructible"));
-        }
-        if (isShovel()) {
-            result = result || block.hasTag(HashedString("minecraft:is_shovel_item_destructible"));
-        }
-        if (isHoe()) {
-            result = result || block.hasTag(HashedString("minecraft:is_hoe_item_destructible"));
-        }
-    }
-    return result;
-}
-
-void ICustomToolItem::executeEvent(::ItemStackBase& item, ::std::string const& ev, ::RenderParams& rp) const {
+void toolItemExecuteEvent(::ItemStackBase& item, ::std::string const& ev, ::RenderParams& rp) {
     if (rp.mActor && ev == "on_tool_used" && rp.mBlock) {
         item.hurtAndBreak(1, rp.mActor);
-        // 26.51 added the `HandSlot` parameter to `Actor::swing`. `Item::executeEvent` still has no
-        // hand parameter (neither does `RenderParams`), so the caller cannot know the hand - and a
-        // tool used on a block is always the main hand one.
+        // 26.51 added the `HandSlot` parameter to `Actor::swing`. `Item::executeEvent` still has no hand parameter
+        // (neither does `RenderParams`), so the caller cannot know the hand - and a tool used on a block is always the
+        // main hand one.
         rp.mActor->swing(ActorSwingSource::UseItem, ::HandSlot::Mainhand);
         AnimatePacket anipkt;
         anipkt.mAction    = AnimatePacket::Action::Swing;
@@ -95,15 +25,6 @@ void ICustomToolItem::executeEvent(::ItemStackBase& item, ::std::string const& e
         lsepkt.mIsGlobal           = false;
         lsepkt.sendToClients();
     }
-}
-
-void ICustomToolItem::_init() {
-    ICustomItem::_init();
-    if (isSword()) addTag(ItemTag{"minecraft:is_sword"});
-    if (isAxe()) addTag(ItemTag{"minecraft:is_axe"});
-    if (isPickaxe()) addTag(ItemTag{"minecraft:is_pickaxe"});
-    if (isShovel()) addTag(ItemTag{"minecraft:is_shovel"});
-    if (isHoe()) addTag(ItemTag{"minecraft:is_hoe"});
 }
 
 } // namespace modapi::inline item

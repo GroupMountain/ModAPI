@@ -1,41 +1,103 @@
 #pragma once
 #include "modapi/item/base/ICustomItem.h"
+#include <mc/deps/core/math/Vec3.h>
+#include <mc/deps/core/string/HashedString.h>
+#include <mc/legacy/ActorRuntimeID.h>
+#include <mc/network/packet/AnimatePacket.h>
+#include <mc/network/packet/LevelSoundEventPacket.h>
+#include <mc/world/actor/Actor.h>
+#include <mc/world/actor/ActorSwingSource.h>
+#include <mc/world/actor/RenderParams.h>
+#include <mc/world/item/HandSlot.h>
+#include <mc/world/item/ItemStackBase.h>
+#include <mc/world/item/ItemTag.h>
+#include <mc/world/level/BlockPos.h>
+#include <mc/world/level/block/Block.h>
 
 namespace modapi::inline item {
 
-class ICustomToolItem : public ICustomItem {
+// Defined in the `.cpp`: it builds engine packets, some of whose constructors the engine does not export.
+MOD_API void toolItemExecuteEvent(::ItemStackBase& item, ::std::string const& ev, ::RenderParams& rp);
+
+// A tool item, on top of whatever engine base `T` is. Every answer is written here rather than in a `.cpp`: a template
+// member's definition has to be visible wherever `T` is instantiated, and its mangled name moves with `T`.
+template <typename T>
+class ICustomToolItem : public ICustomItem<T> {
 public:
-    MOD_NDAPI explicit ICustomToolItem(std::string const& identifier);
+    explicit ICustomToolItem(std::string const& identifier) : ICustomItem<T>(identifier) {
+        this->addTag(ItemTag{ItemTag{"minecraft:is_tool"}});
+    }
 
-    MOD_API virtual bool isSword() const;
+    virtual bool isSword() const { return false; }
 
-    MOD_API virtual bool isAxe() const;
+    virtual bool isAxe() const { return false; }
 
-    MOD_API virtual bool isPickaxe() const;
+    virtual bool isPickaxe() const { return false; }
 
-    MOD_API virtual bool isShovel() const;
+    virtual bool isShovel() const { return false; }
 
-    MOD_API virtual bool isHoe() const;
+    virtual bool isHoe() const { return false; }
 
-    MOD_API bool isHandEquipped() const override;
+    bool isHandEquipped() const override { return true; }
 
-    MOD_API uint8_t getItemMaxStackSize() const override;
+    uint8_t getItemMaxStackSize() const override { return 1; }
 
-    MOD_API bool canDestroyInCreative() const override;
+    bool canDestroyInCreative() const override { return !isSword(); }
 
-    MOD_API ::SharedTypes::CreativeItemCategory getCreativeCategory() const override;
+    ::SharedTypes::CreativeItemCategory getCreativeCategory() const override {
+        return ::SharedTypes::CreativeItemCategory::Equipment;
+    }
 
-    MOD_API std::string getCreativeGroup() const override;
+    std::string getCreativeGroup() const override {
+        if (isSword()) return "itemGroup.name.sworde";
+        if (isAxe()) return "itemGroup.name.axe";
+        if (isPickaxe()) return "itemGroup.name.pickaxe";
+        if (isShovel()) return "itemGroup.name.shovel";
+        if (isHoe()) return "itemGroup.name.hoe";
+        return ICustomItem<T>::getCreativeGroup();
+    }
 
-    MOD_API Interactions::Mining::MineBlockItemEffectType getMineBlockItemEffectType() const override;
+    Interactions::Mining::MineBlockItemEffectType getMineBlockItemEffectType() const override {
+        return Interactions::Mining::MineBlockItemEffectType::DiggerItem;
+    }
 
-    MOD_API bool isDiggerItem() const override;
+    bool isDiggerItem() const override { return true; }
 
-    MOD_API bool canDestroySpecial(Block const& block) const override;
+    bool canDestroySpecial(Block const& block) const override {
+        bool result = T::canDestroySpecial(block);
+        if (!result) {
+            if (isSword()) {
+                result = result || block.hasTag(HashedString("minecraft:is_sword_item_destructible"));
+            }
+            if (isAxe()) {
+                result = result || block.hasTag(HashedString("minecraft:is_axe_item_destructible"));
+            }
+            if (isPickaxe()) {
+                result = result || block.hasTag(HashedString("minecraft:is_pickaxe_item_destructible"));
+            }
+            if (isShovel()) {
+                result = result || block.hasTag(HashedString("minecraft:is_shovel_item_destructible"));
+            }
+            if (isHoe()) {
+                result = result || block.hasTag(HashedString("minecraft:is_hoe_item_destructible"));
+            }
+        }
+        return result;
+    }
 
-    MOD_API void executeEvent(::ItemStackBase& item, ::std::string const& ev, ::RenderParams& rp) const override;
-
-    MOD_API void _init() override;
+    void executeEvent(::ItemStackBase& item, ::std::string const& ev, ::RenderParams& rp) const override {
+        // One line, because the body builds engine packets whose constructors the engine does not export: it lives in
+        // the `.cpp`, where the whole thing is compiled once inside ModAPI.
+        toolItemExecuteEvent(item, ev, rp);
+    }
+    void _init() {
+        ICustomItem<T>::_init();
+        if (isSword()) this->addTag(ItemTag{"minecraft:is_sword"});
+        if (isAxe()) this->addTag(ItemTag{"minecraft:is_axe"});
+        if (isPickaxe()) this->addTag(ItemTag{"minecraft:is_pickaxe"});
+        if (isShovel()) this->addTag(ItemTag{"minecraft:is_shovel"});
+        if (isHoe()) this->addTag(ItemTag{"minecraft:is_hoe"});
+    }
 };
 
 } // namespace modapi::inline item

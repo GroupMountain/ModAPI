@@ -1,4 +1,5 @@
 #include "modapi/worldgen/BlockHelper.h"
+#include "modapi/core/Gloabl.h"
 #include <mc/world/level/BlockSource.h>
 #include <mc/world/level/ChunkBlockPos.h>
 #include <mc/world/level/block/BlockChangeContext.h>
@@ -7,111 +8,181 @@
 
 namespace modapi::inline worldgen {
 
-namespace block_helper::details {
-bool check(BlockSource const* source, BlockPos const& pos) {
-    return source->hasChunksAt(pos, 0, false) && pos.y < source->mDimension.mHeightRange->mMax
-        && pos.y >= source->mDimension.mHeightRange->mMin;
-}
-bool check(LevelChunk const* chunk, BlockPos const& pos) {
-    return pos.x - chunk->mPosition->x * 16 < 16 && pos.z - chunk->mPosition->z * 16 < 16
-        && pos.y < chunk->mDimension.mHeightRange->mMax && pos.y >= chunk->mDimension.mHeightRange->mMin;
-}
-void setBlock(BlockSource* source, BlockPos const& pos, Block const& block, uchar layer, int updateFlags) {
-    if (!check(source, pos)) throw std::runtime_error("invalid position.");
-    switch (layer) {
-    case 0:
-        source->setBlock(pos, block, updateFlags, nullptr, {});
-        break;
-    case 1:
-        source->setExtraBlock(pos, block, updateFlags);
-        break;
-    default:
-        throw std::out_of_range("layer out of range.");
-    }
-}
-void setBlock(LevelChunk* chunk, BlockPos const& pos, Block const& block, uchar layer, int) {
-    if (!check(chunk, pos)) throw std::runtime_error("invalid position.");
-    const auto chunkPos = ChunkBlockPos{pos, chunk->mDimension.mHeightRange->mMin};
-    switch (layer) {
-    case 0:
-        chunk->setBlock(chunkPos, block, nullptr, nullptr, {});
-        break;
-    case 1:
-        chunk->setExtraBlock(chunkPos, block, nullptr);
-        break;
-    default:
-        throw std::out_of_range("layer out of range.");
-    }
-}
-Block const& getBlock(BlockSource const* source, BlockPos const& pos, uchar layer) {
-    if (!check(source, pos)) throw std::runtime_error("invalid position.");
-    switch (layer) {
-    case 0:
-        return source->getBlock(pos);
-    case 1:
-        return source->getExtraBlock(pos);
-    default:
-        throw std::out_of_range("layer out of range.");
-    }
-}
-Block const& getBlock(LevelChunk const* chunk, BlockPos const& pos, uchar layer) {
-    if (!check(chunk, pos)) throw std::runtime_error("invalid position.");
-    const auto chunkPos = ChunkBlockPos{pos, chunk->mDimension.mHeightRange->mMin};
-    switch (layer) {
-    case 0:
-        return chunk->getBlock(chunkPos);
-    case 1:
-        return chunk->mDimension.getBlockSourceFromMainChunkSource().getExtraBlock(pos);
-    default:
-        throw std::out_of_range("layer out of range.");
-    }
-}
-} // namespace block_helper::details
-struct BlockHelper::Impl : std::variant<BlockSource*, LevelChunk*> {
-    using std::variant<BlockSource*, LevelChunk*>::variant;
-};
-BlockHelper::BlockHelper(BlockSource* source) : pImpl(std::make_unique<Impl>(source)) {}
-BlockHelper::BlockHelper(LevelChunk* chunk) : pImpl(std::make_unique<Impl>(chunk)) {}
-BlockHelper::~BlockHelper() = default;
+namespace {
 
-void BlockHelper::setBlock(BlockPos const& pos, Block const& block, uchar layer, int updateFlags) {
+constexpr int ChunkSize = 16;
+
+bool inHeightRange(DimensionHeightRange const& range, BlockPos const& pos) {
+    return pos.y < range.mMax && pos.y >= range.mMin;
+}
+
+bool checkPosition(BlockSource const* source, BlockPos const& pos) {
+    return source->hasChunksAt(pos, 0, false) && inHeightRange(source->mDimension.mHeightRange, pos);
+}
+
+// The local coordinate has to be *inside* the chunk. Only comparing the high edge (as this used to
+// do) accepted a position before the chunk - `origin - 1` - which was then written to a wrapped
+// local coordinate, i.e. to a block of the neighbouring chunk.
+bool checkPosition(LevelChunk const* chunk, BlockPos const& pos) {
+    auto const chunkPos = *chunk->mPosition;
+    auto const localX   = pos.x - chunkPos.x * ChunkSize;
+    auto const localZ   = pos.z - chunkPos.z * ChunkSize;
+    return localX >= 0 && localX < ChunkSize && localZ >= 0 && localZ < ChunkSize
+        && inHeightRange(chunk->mDimension.mHeightRange, pos);
+}
+
+bool writeBlock(
+    BlockSource*       source,
+    BlockPos const&    pos,
+    Block const&       block,
+    BlockHelper::Layer layer,
+    int                updateFlags
+) {
+    if (!checkPosition(source, pos)) return false;
+    if (layer == BlockHelper::Layer::Block) {
+        source->setBlock(pos, block, updateFlags, nullptr, {});
+        return true;
+    }
+    if (layer == BlockHelper::Layer::ExtraBlock) {
+        source->setExtraBlock(pos, block, updateFlags);
+        return true;
+    }
+    return false; // an out of range `Layer` value (only reachable through a cast)
+}
+
+bool writeBlock(LevelChunk* chunk, BlockPos const& pos, Block const& block, BlockHelper::Layer layer, int) {
+    if (!checkPosition(chunk, pos)) return false;
+    auto const chunkPos = ChunkBlockPos{pos, chunk->mDimension.mHeightRange->mMin};
+    if (layer == BlockHelper::Layer::Block) {
+        chunk->setBlock(chunkPos, block, nullptr, nullptr, {});
+        return true;
+    }
+    if (layer == BlockHelper::Layer::ExtraBlock) {
+        chunk->setExtraBlock(chunkPos, block, nullptr);
+        return true;
+    }
+    return false;
+}
+
+optional_ref<Block const> readBlock(BlockSource const* source, BlockPos const& pos, BlockHelper::Layer layer) {
+    if (!checkPosition(source, pos)) return std::nullopt;
+    if (layer == BlockHelper::Layer::Block) return source->getBlock(pos);
+    if (layer == BlockHelper::Layer::ExtraBlock) return source->getExtraBlock(pos);
+    return std::nullopt;
+}
+
+optional_ref<Block const> readBlock(LevelChunk const* chunk, BlockPos const& pos, BlockHelper::Layer layer) {
+    if (!checkPosition(chunk, pos)) return std::nullopt;
+    auto const chunkPos = ChunkBlockPos{pos, chunk->mDimension.mHeightRange->mMin};
+    if (layer == BlockHelper::Layer::Block) return chunk->getBlock(chunkPos);
+    if (layer == BlockHelper::Layer::ExtraBlock) {
+        return chunk->mDimension.getBlockSourceFromMainChunkSource().getExtraBlock(pos);
+    }
+    return std::nullopt;
+}
+
+} // namespace
+
+BlockHelper::BlockHelper(BlockSource* source) : mRegion(source) {}
+BlockHelper::BlockHelper(LevelChunk* chunk) : mRegion(chunk) {}
+
+bool BlockHelper::isValid() const noexcept {
     return std::visit(
-        [&](auto* sourceOrChunk) { block_helper::details::setBlock(sourceOrChunk, pos, block, layer, updateFlags); },
-        *pImpl
-    );
-}
-Block const& BlockHelper::getBlock(BlockPos const& pos, uchar layer) const {
-    return std::visit<Block const&>(
-        [&](auto const* sourceOrChunk) -> Block const& {
-            return block_helper::details::getBlock(sourceOrChunk, pos, layer);
+        [](auto value) -> bool {
+            using Region = std::decay_t<decltype(value)>;
+            if constexpr (std::is_same_v<Region, std::monostate>) {
+                return false;
+            } else {
+                return value != nullptr;
+            }
         },
-        *pImpl
+        mRegion
     );
 }
+
+bool BlockHelper::isValidPosition(BlockPos const& pos) const {
+    return std::visit(
+        [&pos](auto value) -> bool {
+            using Region = std::decay_t<decltype(value)>;
+            if constexpr (std::is_same_v<Region, std::monostate>) {
+                return false;
+            } else {
+                return value != nullptr && checkPosition(value, pos);
+            }
+        },
+        mRegion
+    );
+}
+
+bool BlockHelper::setBlock(BlockPos const& pos, Block const& block, Layer layer, int updateFlags) {
+    auto const written = std::visit(
+        [&](auto value) -> bool {
+            using Region = std::decay_t<decltype(value)>;
+            if constexpr (std::is_same_v<Region, std::monostate>) {
+                return false;
+            } else {
+                return value != nullptr && writeBlock(value, pos, block, layer, updateFlags);
+            }
+        },
+        mRegion
+    );
+    if (!written) {
+        core::getLogger().error(
+            "BlockHelper: nothing was written at ({}, {}, {}) - the region is empty or the position is outside it",
+            pos.x,
+            pos.y,
+            pos.z
+        );
+    }
+    return written;
+}
+
+optional_ref<Block const> BlockHelper::getBlock(BlockPos const& pos, Layer layer) const {
+    return std::visit(
+        [&](auto value) -> optional_ref<Block const> {
+            using Region = std::decay_t<decltype(value)>;
+            if constexpr (std::is_same_v<Region, std::monostate>) {
+                return std::nullopt;
+            } else {
+                if (value == nullptr) return std::nullopt;
+                return readBlock(value, pos, layer);
+            }
+        },
+        mRegion
+    );
+}
+
 DimensionHeightRange BlockHelper::getHeightRange() const {
     return std::visit(
-        [](auto const* sourceOrChunk) -> DimensionHeightRange { return sourceOrChunk->mDimension.mHeightRange; },
-        *pImpl
+        [](auto value) -> DimensionHeightRange {
+            using Region = std::decay_t<decltype(value)>;
+            if constexpr (std::is_same_v<Region, std::monostate>) {
+                return {};
+            } else {
+                if (value == nullptr) return {};
+                return value->mDimension.mHeightRange;
+            }
+        },
+        mRegion
     );
 }
-template <>
-MOD_API LevelChunk* BlockHelper::get<LevelChunk, void>() {
-    if (auto res = std::get_if<LevelChunk*>(&*pImpl)) return *res;
+
+short BlockHelper::getMinHeight() const { return getHeightRange().mMin; }
+
+short BlockHelper::getMaxHeight() const { return getHeightRange().mMax; }
+
+BlockSource* BlockHelper::getBlockSource() const noexcept {
+    if (auto const* source = std::get_if<BlockSource*>(&mRegion)) return *source;
     return nullptr;
 }
-template <>
-MOD_API LevelChunk const* BlockHelper::get<LevelChunk, void>() const {
-    if (auto res = std::get_if<LevelChunk*>(&*pImpl)) return *res;
+
+LevelChunk* BlockHelper::getLevelChunk() const noexcept {
+    if (auto const* chunk = std::get_if<LevelChunk*>(&mRegion)) return *chunk;
     return nullptr;
 }
-template <>
-MOD_API BlockSource* BlockHelper::get<BlockSource, void>() {
-    if (auto res = std::get_if<BlockSource*>(&*pImpl)) return *res;
-    return nullptr;
-}
-template <>
-MOD_API BlockSource const* BlockHelper::get<BlockSource, void>() const {
-    if (auto res = std::get_if<BlockSource*>(&*pImpl)) return *res;
-    return nullptr;
-}
+
+bool BlockHelper::holdsBlockSource() const noexcept { return getBlockSource() != nullptr; }
+
+bool BlockHelper::holdsLevelChunk() const noexcept { return getLevelChunk() != nullptr; }
+
 } // namespace modapi::inline worldgen

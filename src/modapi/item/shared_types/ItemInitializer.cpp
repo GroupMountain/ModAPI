@@ -4,60 +4,24 @@
 
 namespace modapi::inline item {
 
-void initCustomItem(ICustomItem& item) {
-    item.mMaxStackSize = item.getItemMaxStackSize();
-    auto tags          = item.getItemTags();
+
+// A block item: only the conveniences that make sense next to `::BlockItem` (the icon and the placement
+// behaviour come from the block itself).
+void initCustomItem(ICustomBlockItem& item) {
+    item.mMaxStackSize         = item.getItemMaxStackSize();
+    item.mHoverTextColorFormat = item.getHoverTextColorFormat();
+    item.mShouldDespawn        = item.shouldDespawn();
+    item.mIsGlint              = item.isFoil();
+    // A creative category is what makes the engine list the item itself, so nothing has to be queued for it.
+    // (Giving a block item one used to crash, while it was built with id 0; it is built with the id derived
+    // from its block now, the way vanilla does it.)
+    item.mCreativeCategory = item.getCreativeCategory();
+    item.mCreativeGroup    = item.getCreativeGroup();
+    auto tags              = item.getItemTags();
     for (auto& tag : tags) {
         item.addTag(ItemTag(tag));
     }
-    item.mAllowOffhand         = toOffhandAllowed(item.allowOffhand());
-    item.mHoverTextColorFormat = item.getHoverTextColorFormat();
-    item.mBaseRarity           = item.getBaseRarity();
-    item.mShouldDespawn        = item.shouldDespawn();
-    item.mIsGlint              = item.isFoil();
-    item.mUseAnim              = item.getUseAnimation();
-    item.mIsStackedByData      = item.isStackedByData();
-    item.mRequiresWorldBuilder = item.requiresWorldBuilder();
-    item.mExplodable           = item.isExplodable();
-    item.mFireResistant        = item.isFireResistant();
-    item.mIgnoresPermissions   = item.shouldIgnoresPermissions();
-    item.mAnimatesInToolbar    = item.shouldAnimatesInToolbar();
-    item.mMaxDamage            = item.getMaxDamage();
-    item.mHandEquipped         = item.isHandEquipped();
-    item.mMaxUseDuration       = item.getUseDuration();
-    item.mMineBlockType        = item.getMineBlockItemEffectType();
-    item.mCreativeCategory     = item.getCreativeCategory();
-    item.mCreativeGroup        = item.getCreativeGroup();
-    if (item.isFuel()) {
-        item.mFurnaceBurnIntervalModifier = item.getFurnaceBurnInterval();
-        if (item.mFurnaceBurnIntervalModifier < 0.05f) {
-            item.mFurnaceBurnIntervalModifier = 0.05f;
-        }
-    }
-    item.mFurnaceXPmultiplier = item.getFurnaceXPmultiplier(::ItemInstance());
-    item.mIsHiddenInCommands  = item.shouldHiddenInCommands();
-    item.mFrameCount          = item.getFrameCount();
-    if (item.isSmithingTemplate()) {
-        item.addTag(ItemTag{"minecraft:transform_templates"});
-    }
-    if (item.isSmithingTransformable()) {
-        item.addTag(ItemTag{"minecraft:transformable_items"});
-    }
-    if (item.isSmithingTransformMaterial()) {
-        item.addTag(ItemTag{"minecraft:transform_materials"});
-    }
-    if (item.isFood()) {
-        item.addTag(ItemTag{"minecraft:is_food"});
-    }
-    if (item.getCompostChance() > 0) {
-        auto chance = item.getCompostChance();
-        if (chance > 100) chance = 100;
-        const_cast<std::unordered_map<uint64, int8_t>&>(
-            ComposterBlock::_getCompostableItems()
-        )[item.mFullName->mStrHash] = static_cast<int8>(chance);
-    }
 }
-
 void initCustomItem(ICustomArmorItem& item) {
     item.mMaxStackSize = item.getItemMaxStackSize();
     auto tags          = item.getItemTags();

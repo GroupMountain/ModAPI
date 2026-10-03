@@ -119,7 +119,7 @@ public:
 
     MOD_API ::ItemStack& use(::ItemStack& item, ::Player& player, ::HandSlot handSlot) const override;
 
-    MOD_API virtual void _init();
+    MOD_API void _init();
 };
 
 } // namespace modapi::inline item

@@ -11,7 +11,7 @@ struct DamageChance {
 
     MOD_NDAPI DamageChance(uint8_t min, uint8_t max);
 
-    int random() const;
+    MOD_API int random() const;
 };
 
 } // namespace modapi::inline item

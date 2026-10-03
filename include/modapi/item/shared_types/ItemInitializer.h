@@ -1,0 +1,68 @@
+#pragma once
+#include "modapi/item/base/ICustomBlockItem.h"
+#include "modapi/item/shared_types/NetworkTagBuilder.h"
+#include <mc/world/item/ItemInstance.h>
+#include <mc/world/level/block/ComposterBlock.h>
+
+namespace modapi::inline item {
+
+template <class ItemT>
+void initCustomItem(ItemT& item) {
+    item.mMaxStackSize = item.getItemMaxStackSize();
+    auto tags          = item.getItemTags();
+    for (auto& tag : tags) {
+        item.addTag(ItemTag(tag));
+    }
+    item.mAllowOffhand         = toOffhandAllowed(item.allowOffhand());
+    item.mHoverTextColorFormat = item.getHoverTextColorFormat();
+    item.mBaseRarity           = item.getBaseRarity();
+    item.mShouldDespawn        = item.shouldDespawn();
+    item.mIsGlint              = item.isFoil();
+    item.mUseAnim              = item.getUseAnimation();
+    item.mIsStackedByData      = item.isStackedByData();
+    item.mRequiresWorldBuilder = item.requiresWorldBuilder();
+    item.mExplodable           = item.isExplodable();
+    item.mFireResistant        = item.isFireResistant();
+    item.mIgnoresPermissions   = item.shouldIgnoresPermissions();
+    item.mAnimatesInToolbar    = item.shouldAnimatesInToolbar();
+    item.mMaxDamage            = item.getMaxDamage();
+    item.mHandEquipped         = item.isHandEquipped();
+    item.mMaxUseDuration       = item.getUseDuration();
+    item.mMineBlockType        = item.getMineBlockItemEffectType();
+    item.mCreativeCategory     = item.getCreativeCategory();
+    item.mCreativeGroup        = item.getCreativeGroup();
+    if (item.isFuel()) {
+        item.mFurnaceBurnIntervalModifier = item.getFurnaceBurnInterval();
+        if (item.mFurnaceBurnIntervalModifier < 0.05f) {
+            item.mFurnaceBurnIntervalModifier = 0.05f;
+        }
+    }
+    item.mFurnaceXPmultiplier = item.getFurnaceXPmultiplier(::ItemInstance());
+    item.mIsHiddenInCommands  = item.shouldHiddenInCommands();
+    item.mFrameCount          = item.getFrameCount();
+    if (item.isSmithingTemplate()) {
+        item.addTag(ItemTag{"minecraft:transform_templates"});
+    }
+    if (item.isSmithingTransformable()) {
+        item.addTag(ItemTag{"minecraft:transformable_items"});
+    }
+    if (item.isSmithingTransformMaterial()) {
+        item.addTag(ItemTag{"minecraft:transform_materials"});
+    }
+    if (item.isFood()) {
+        item.addTag(ItemTag{"minecraft:is_food"});
+    }
+    if (item.getCompostChance() > 0) {
+        auto chance = item.getCompostChance();
+        if (chance > 100) chance = 100;
+        const_cast<std::unordered_map<uint64, int8_t>&>(
+            ComposterBlock::_getCompostableItems()
+        )[item.mFullName->mStrHash] = static_cast<int8>(chance);
+    }
+}
+
+void initCustomItem(ICustomArmorItem& item);
+
+void initCustomItem(ICustomBlockItem& item);
+
+} // namespace modapi::inline item

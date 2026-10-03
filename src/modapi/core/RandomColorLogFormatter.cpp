@@ -1,6 +1,33 @@
 #include "modapi/core/RandomColorLogFormatter.h"
-#include <gmlib/gm/utils/StringUtils.h>
+#include <cmath>
+#include <cstdint>
+#include <fmt/format.h>
 #include <ll/api/utils/StringUtils.h>
+#include <ll/api/utils/SystemUtils.h>
+
+namespace {
+
+// Ported from the gmlib::string_utils::gradientText this used to call: one truecolor escape per
+// character, and the text is returned unchanged when the console does not support ANSI colors.
+std::string gradientText(std::string const& str, mce::Color const& start, mce::Color const& end) {
+    if (str.empty() || !ll::sys_utils::isStdoutSupportAnsi()) return str;
+
+    std::string result;
+    auto const  length = str.size();
+    for (size_t index = 0; index < length; ++index) {
+        auto interpolation  = length == 1 ? 0.5 : static_cast<double>(index) / static_cast<double>(length - 1);
+        result             += fmt::format(
+            "\033[38;2;{};{};{}m{}\033[0m",
+            static_cast<uint8_t>(std::round((start.r + (end.r - start.r) * interpolation) * 255.0)),
+            static_cast<uint8_t>(std::round((start.g + (end.g - start.g) * interpolation) * 255.0)),
+            static_cast<uint8_t>(std::round((start.b + (end.b - start.b) * interpolation) * 255.0)),
+            str.substr(index, 1)
+        );
+    }
+    return result;
+}
+
+} // namespace
 
 namespace modapi::inline core {
 
@@ -17,8 +44,8 @@ void RandomColorLogFormatter::format(ll::io::LogMessageView const& view, std::st
         [&](std::string_view line) -> bool {
             PatternFormatter::format(
                 ll::io::LogMessageView{
-                    gmlib::string_utils::gradientText(std::string{line}, start, end),
-                    gmlib::string_utils::gradientText(std::string{view.tit}, end, start),
+                    gradientText(std::string{line}, start, end),
+                    gradientText(std::string{view.tit}, end, start),
                     view.lvl,
                     view.tm
                 },

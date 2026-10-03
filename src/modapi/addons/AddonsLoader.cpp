@@ -1,6 +1,6 @@
 #include "modapi/addons/AddonsLoader.h"
+#include "modapi/addons/ZipArchive.h"
 #include "modapi/core/Gloabl.h"
-#include <gmlib/gm/io/ZipUtils.h>
 #include <ll/api/memory/Hook.h>
 #include <ll/api/service/Bedrock.h>
 #include <ll/api/thread/ThreadPoolExecutor.h>
@@ -58,9 +58,9 @@ AddonsLoader& AddonsLoader::getInstance() {
 }
 
 void AddonsLoader::addCustomPackPath(std::filesystem::path const& path) {
-    constexpr static auto anyOfZip = [](auto&& zip) -> bool {
-        for (auto& entry : *zip) {
-            if (entry.mName.ends_with("/manifest.json")) return true;
+    constexpr static auto anyOfZip = [](auto const& zip) -> bool {
+        for (auto const& name : zip->entryNames()) {
+            if (name.ends_with("/manifest.json")) return true;
         }
         return false;
     };
@@ -74,7 +74,7 @@ void AddonsLoader::addCustomPackPath(std::filesystem::path const& path) {
     pImpl->mAllResourcePath.insert(path);
     for (auto& entry : std::filesystem::directory_iterator(path)) {
         if (!entry.is_regular_file()) continue;
-        auto zip = std::make_shared<gmlib::zip_utils::Unzipper>(entry.path());
+        auto zip = std::make_shared<ZipArchive>(entry.path());
         if (!zip->isOpen() || !anyOfZip(zip)) continue;
         pImpl->mDecompressThread.emplace_back([zip, name = entry.path().stem().string(), this]() -> void {
             auto path = pImpl->mResourceCachePath / name;

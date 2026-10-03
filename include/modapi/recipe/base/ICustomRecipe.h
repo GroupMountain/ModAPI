@@ -10,13 +10,13 @@
 
 namespace modapi::inline recipe {
 
-class CustomRecipeRegistry;
+class RecipeRegistry;
 
 class ICustomRecipe {
 public:
     struct Impl;
     std::unique_ptr<Impl> pImpl;
-    friend class CustomRecipeRegistry;
+    friend class RecipeRegistry;
 
 public:
     struct Ingredient {

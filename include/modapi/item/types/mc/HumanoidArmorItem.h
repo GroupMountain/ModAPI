@@ -3,12 +3,18 @@
 #include "modapi/Macros.h"
 #include <mc/_HeaderOutputPredefine.h>
 
+
 // auto generated inclusion list
 #include <mc/deps/shared_types/legacy/LevelSoundEvent.h>
+
 #include <mc/deps/shared_types/legacy/actor/ActorLocation.h>
+
 #include <mc/deps/shared_types/legacy/actor/ArmorSlot.h>
+
 #include <mc/world/item/HandSlot.h>
+
 #include <mc/world/item/Item.h>
+
 
 // auto generated forward declare list
 // clang-format off
