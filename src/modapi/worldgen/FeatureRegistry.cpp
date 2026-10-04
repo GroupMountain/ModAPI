@@ -1,5 +1,6 @@
 #include "modapi/worldgen/FeatureRegistry.h"
 #include "modapi/core/RegistryEvent.h"
+#include "modapi/worldgen/FeatureRuleRegistry.h"
 #include "modapi/worldgen/LocalData.h"
 #include <atomic>
 #include <ll/api/base/Containers.h>
@@ -100,11 +101,11 @@ LL_TYPE_INSTANCE_HOOK(
 }
 
 struct RuleFeature : public IFeature {
-    FeatureRegistry::CustomFeatureRule mRule;
-    std::string                        mName;
+    std::shared_ptr<ICustomFeatureRule> mRule;
+    std::string                         mName;
 
-    RuleFeature(FeatureRegistry::CustomFeatureRule&& rule, std::string_view name)
-    : mRule(std::forward<decltype(mRule)>(rule)),
+    RuleFeature(std::shared_ptr<ICustomFeatureRule> rule, std::string_view name)
+    : mRule(std::move(rule)),
       mName(name) {}
 
     ::std::optional<::BlockPos> place(::IFeature::PlacementContext const& context) const override {
@@ -120,7 +121,7 @@ struct RuleFeature : public IFeature {
         } else {
             helper = std::make_shared<BlockHelper>(LocalData::getInstance().mLevelChunk);
         }
-        for (auto placePos : mRule(*helper, pos, *LocalData::getInstance().mRandom)) {
+        for (auto placePos : mRule->place(*helper, pos, *LocalData::getInstance().mRandom)) {
             const_cast<::IFeature::PlacementContext&>(context).mPos = placePos;
             res                                                     = feature->place(context);
         }
@@ -160,6 +161,9 @@ LL_STATIC_HOOK(
     auto& self = FeatureRegistry::getInstance();
     self._bindRegistry(registry);
     self._applyFeatureFactories(registry);
+    // A rule refers to the feature it places, and the engine parses the rules out of the level later, so the rule
+    // definitions have to be in place before `origin` too.
+    FeatureRuleRegistry::getInstance()._bindRegistry(registry);
     origin(registry, baseGameVersion, experiments);
 }
 
@@ -223,18 +227,44 @@ FeatureRegistry::registerFeature(std::string_view identifier, std::unique_ptr<IF
     return {};
 }
 
-FeatureRegistry::ProductRef FeatureRegistry::registerFeatureRule(
-    std::string_view                identifier,
-    std::vector<std::string> const& passes,
-    CustomFeatureRule               rule
+FeatureRuleRegistry& FeatureRuleReadyEvent::registry() const { return mRegistry; }
+
+struct FeatureRuleRegistry::Impl {
+    // The registry the features of the current level went into; the rules are parsed out of it.
+    ::FeatureRegistry* mRegistry = nullptr;
+    bool               mReady    = false;
+};
+
+FeatureRuleRegistry::FeatureRuleRegistry() { pImpl = std::make_unique<Impl>(); }
+
+FeatureRuleRegistry& FeatureRuleRegistry::getInstance() {
+    static FeatureRuleRegistry instance;
+    return instance;
+}
+
+bool FeatureRuleRegistry::isReady() const noexcept { return pImpl->mReady; }
+
+void FeatureRuleRegistry::ensureEventRegistered() {
+    (void)getInstance();
+    static std::atomic_bool registered = false;
+    core::ensureRegistryEventRegistered<FeatureRuleReadyEvent>(registered);
+}
+
+FeatureRuleRegistry::ProductRef FeatureRuleRegistry::_registerRule(
+    std::string const&                  identifier,
+    std::vector<std::string> const&     passes,
+    std::unique_ptr<ICustomFeatureRule> rule
 ) {
+    if (!rule) return {};
     static uint64 idx{0};
-    auto          ruleId           = std::format("modapi:interal_{}", idx++);
-    std::string   identifierString = std::string{identifier};
+    auto          ruleId           = std::format("modapi:rule_{}", idx++);
+    std::string   identifierString = identifier;
+    auto          shared           = std::shared_ptr<ICustomFeatureRule>{std::move(rule)};
     auto&         data             = GlobalData::getInstance();
 
-    data.features[ruleId] = [rule = std::move(rule), identifierString]() -> std::unique_ptr<IFeature> {
-        return std::make_unique<RuleFeature>(FeatureRegistry::CustomFeatureRule{rule}, identifierString);
+    // The feature is rebuilt for every level, and the engine's rules refer to it by the id generated here.
+    data.features[ruleId] = [shared, identifierString]() -> std::unique_ptr<IFeature> {
+        return std::make_unique<RuleFeature>(shared, identifierString);
     };
     for (auto& pass : passes) {
         auto passId = std::format("{}_{}", ruleId, pass);
@@ -242,9 +272,17 @@ FeatureRegistry::ProductRef FeatureRegistry::registerFeatureRule(
     }
 
     if (pImpl->mRegistry != nullptr) {
-        if (auto& factory = data.features.at(ruleId); factory) return _registerFeature(ruleId, factory());
+        if (auto& factory = data.features.at(ruleId); factory) {
+            return FeatureRegistry::getInstance()._registerFeature(ruleId, factory());
+        }
     }
     return {};
+}
+
+void FeatureRuleRegistry::_bindRegistry(::FeatureRegistry& registry) {
+    pImpl->mRegistry = &registry;
+    pImpl->mReady    = true;
+    ll::event::EventBus::getInstance().publish(FeatureRuleReadyEvent{*this});
 }
 
 void FeatureRegistry::_applyFeatureFactories(::FeatureRegistry& registry) {

@@ -12,6 +12,7 @@
 #include "modapi/item/shared_types/NetworkTagBuilder.h"
 #include "modapi/recipe/RecipeRegistry.h"
 #include "modapi/worldgen/FeatureRegistry.h"
+#include "modapi/worldgen/FeatureRuleRegistry.h"
 #include <optional>
 #include <string>
 #include <vector>
@@ -50,12 +51,22 @@ public:
     }
 };
 
+class CheckRule : public worldgen::ICustomFeatureRule {
+public:
+    ll::coro::Generator<BlockPos> place(BlockHelper const&, BlockPos const& pos, Random&) override { co_yield pos; }
+};
+
 [[maybe_unused]] void deferredRegisterTemplateCheck() {
     static DeferredRegister<item::ItemRegistry, CheckItem>             checkItem{"modapi:template_check"};
     static DeferredRegister<recipe::RecipeRegistry, CheckRecipe>       checkRecipe;
     static DeferredRegister<gamerule::GameRuleRegistry, CheckGameRule> checkGameRule;
-    // Custom features take their identifier as the first constructor argument.
-    static DeferredRegister<worldgen::FeatureRegistry, CheckFeature> checkFeature{"modapi:template_check"};
+    // A feature and a rule carry their identifier in the registration structure.
+    static DeferredRegister<worldgen::FeatureRegistry, CheckFeature> checkFeature{
+        worldgen::FeatureRegistry::FeatureRegistration<>{.mIdentifier = "modapi:template_check"}
+    };
+    static DeferredRegister<worldgen::FeatureRuleRegistry, CheckRule> checkRule{
+        worldgen::FeatureRuleRegistration<>{.mIdentifier = "modapi:template_check"}
+    };
 }
 
 } // namespace

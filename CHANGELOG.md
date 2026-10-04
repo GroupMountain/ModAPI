@@ -30,6 +30,11 @@ Since `26.10.0` the version number tracks the supported LeviLamina release: `26.
 - A block's client entry is written from its `BlockProperty`: components, tags, `menu_category` (through the
   engine's own enum to name helper), `vanilla_block_data`, block states (`properties`) and permutations.
 - `_init` is no longer virtual, and the two item definition helpers are templates in the public include tree.
+- A feature and a feature rule are registered with one structure, the way a block is: a
+  `FeatureRegistration<>{ .mIdentifier, .mArguments }` and a `FeatureRuleRegistration<>{ .mIdentifier, .mArguments,
+  .mPasses }`. Rules moved to a registry of their own (`FeatureRuleRegistry`, with `FeatureRuleReadyEvent`) and
+  became a type - `ICustomFeatureRule`, whose `place(...)` yields the positions - instead of a `std::function`
+  callback; `FeatureRegistry::registerFeatureRule` and its `CustomFeatureRule` are gone.
 - The test's block texture is generated at runtime instead of shipping as a file.
 
 ### Removed

@@ -15,6 +15,7 @@
 #include "modapi/item/ItemRegistry.h"
 #include "modapi/recipe/RecipeRegistry.h"
 #include "modapi/worldgen/FeatureRegistry.h"
+#include "modapi/worldgen/FeatureRuleRegistry.h"
 #include <algorithm>
 #include <filesystem>
 #include <fmt/format.h>
@@ -103,7 +104,18 @@ public:
 modapi::DeferredRegister<modapi::ItemRegistry, TestItem>                 gItem{std::string{TestItemName}, 42};
 modapi::DeferredRegister<modapi::RecipeRegistry, TestRecipe>             gRecipe;
 modapi::DeferredRegister<modapi::GameRuleRegistry, TestGameRule>         gGameRule;
-modapi::DeferredRegister<modapi::worldgen::FeatureRegistry, TestFeature> gFeature{TestFeatureId};
+// A rule places through the feature it belongs to; this one hands back the position it was called with, which is
+// what the rule path asserted before it became a class of its own.
+class TestRule : public modapi::worldgen::ICustomFeatureRule {
+public:
+    ll::coro::Generator<BlockPos> place(modapi::BlockHelper const&, BlockPos const& pos, Random&) override {
+        co_yield pos;
+    }
+};
+
+modapi::DeferredRegister<modapi::worldgen::FeatureRegistry, TestFeature> gFeature{
+    modapi::worldgen::FeatureRegistry::FeatureRegistration<>{.mIdentifier = std::string{TestFeatureId}}
+};
 
 // Recorded while the test mod loads: no registry may be open yet at that point.
 struct ReadinessAtLoad {
@@ -641,18 +653,12 @@ void testFeatureApi() {
         report.isTrue("registerFeature.inLevelRegistry", objectAt("modapi_test:api_feature") != nullptr);
         report.isTrue("registerFeature.sameObject", objectAt("modapi_test:api_feature") == single.as_ptr());
 
-        // A rule based feature has no product outside a feature pass, but the rule is remembered for
-        // the levels that are configured later.
-        auto rule = registry.registerFeatureRule(
-            "modapi_test:api_rule_feature",
-            {"modapi_test_pass"},
-            [](modapi::BlockHelper const&, BlockPos const& pos, Random&) -> ll::coro::Generator<BlockPos> {
-                co_yield pos;
-            }
+        // A rule is registered through its own registry, with the structure that carries the identifier, the
+        // constructor arguments and the passes. There is no product outside a feature pass, but the rule is
+        // remembered for the levels configured later.
+        auto rule = modapi::worldgen::FeatureRuleRegistry::getInstance().registerEntry<TestRule>(
+            modapi::worldgen::FeatureRuleRegistration<>{.mIdentifier = "modapi_test:api_rule_feature", .mPasses = {"modapi_test_pass"}}
         );
-        // The rule is remembered for the levels that are configured later *and* registered for the one
-
-        // that is already configured, so there is a product here.
         report.isTrue("registerFeatureRule.product", rule.has_value());
         // The rule's feature is rebuilt for the levels configured *after* the rule was added, so it
         // is not in the registry of the level that is already running.

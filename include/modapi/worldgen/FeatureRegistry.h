@@ -10,6 +10,7 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -40,8 +41,6 @@ public:
     using EventType  = FeatureReadyEvent;
     using Product    = ::IFeature;
     using ProductRef = optional_ref<::IFeature>;
-    using CustomFeatureRule =
-        std::function<ll::coro::Generator<BlockPos>(BlockHelper const& helper, BlockPos const& pos, Random& random)>;
 
 public:
     FeatureRegistry();
@@ -60,13 +59,28 @@ public:
     template <class Entry>
     static constexpr bool isEntry = std::derived_from<Entry, ::IFeature>;
 
-    // The identifier is the first argument, then the constructor arguments of `Entry`:
-    //   DeferredRegister<FeatureRegistry, MyFeature> gFeature("mymod:my_feature", ctorArgs...);
+    // What to register, in one place, mirroring `BlockRegistration`: the identifier and the constructor arguments
+    // of `Entry`. The call site names the type, exactly as it does for a block:
+    //   DeferredRegister<FeatureRegistry, MyFeature> gFeature{
+    //       FeatureRegistration<>{ .mIdentifier = "mymod:my_feature", .mArguments = {} }
+    //   };
+    template <class... Args>
+    struct FeatureRegistration {
+        std::string         mIdentifier;
+        std::tuple<Args...> mArguments;
+    };
+
     template <class Entry, class... Args>
         requires isEntry<Entry>
-    ProductRef registerEntry(std::string_view identifier, Args&&... args) {
+    ProductRef registerEntry(FeatureRegistration<Args...> registration) {
         try {
-            return _registerFeature(identifier, std::make_unique<Entry>(std::forward<Args>(args)...));
+            auto feature = std::apply(
+                [](auto&&... args) -> std::unique_ptr<::IFeature> {
+                    return std::make_unique<Entry>(std::forward<decltype(args)>(args)...);
+                },
+                std::move(registration.mArguments)
+            );
+            return _registerFeature(registration.mIdentifier, std::move(feature));
         } catch (...) {
             return {};
         }
@@ -75,11 +89,6 @@ public:
     // Single shot registration of an already built feature; not replayed for later levels, use
     // `DeferredRegister` for that.
     MOD_NDAPI ProductRef registerFeature(std::string_view identifier, std::unique_ptr<IFeature> feature);
-
-    // Feature rule built from a ModAPI callback. The feature is rebuilt for every level, so the
-    // returned product is the one registered for the pass that was running, if any.
-    MOD_NDAPI ProductRef
-    registerFeatureRule(std::string_view identifier, std::vector<std::string> const& passes, CustomFeatureRule rule);
 
     // Binds the registry vanilla is filling and publishes `FeatureReadyEvent` for it.
     MOD_API void _bindRegistry(::FeatureRegistry& registry);

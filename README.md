@@ -229,7 +229,7 @@ xmake build test
 - `[BLOCKHELPER]`（51 条）：句柄有效性与区域识别、高度范围与半开区间、越界与「chunk 之前一个方块」的拒绝、`Layer` 越界值、空/空指针句柄不崩溃、拷贝与移动语义、以及读写往返（含两种句柄互相可见性）。
 
 测试可以用**虚拟玩家**（`SimulatedPlayer::create(name, pos, dimension, rotation)`，`LLAPI`，无需客户端）当「区块锚点」：创建它会加载周围区块，因此凡是依赖已加载区块的用例（`[BLOCKHELPER]` 的写入、以后的世界生成用例）都不再看运气 —— 它本身还是真 `Actor`/`Player`，能直接喂给引擎的掉落/行为接口。
-读写方块的用例需要附近有已加载 chunk（无人的服务器不会加载任何 chunk），这类用例会记为 `skipped=` 而不是失败；`registerFeatureRule` 的特征只加入之后配置的 level，因此当前 level 的检查同样记为 `skipped=`。
+读写方块的用例需要附近有已加载 chunk（无人的服务器不会加载任何 chunk），这类用例会记为 `skipped=` 而不是失败；通过 `FeatureRuleRegistry` 注册的规则只加入之后配置的 level，因此当前 level 的检查同样记为 `skipped=`。
 
 
 符号约束：只有头文件里声明的非 `MCNAPI`（`MCAPI`/`LLAPI`/`LLNDAPI`）符号可用 —— 服务端导出表已剥离符号，`MCNAPI` 标记的函数无法解析。
