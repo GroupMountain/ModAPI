@@ -9,18 +9,14 @@
 namespace modapi::inline addons {
 namespace {
 
-std::mt19937_64& randomEngine() {
-    static std::mt19937_64 engine{std::random_device{}()};
-    return engine;
-}
-
 std::string randomHex(size_t digits) {
+    static std::mt19937_64             engine{std::random_device{}()};
     std::uniform_int_distribution<int> distribution(0, 15);
     static char const*                 digits_ = "0123456789abcdef";
 
     std::string out;
     out.reserve(digits);
-    for (size_t i = 0; i < digits; ++i) out.push_back(digits_[distribution(randomEngine())]);
+    for (size_t i = 0; i < digits; ++i) out.push_back(digits_[distribution(engine)]);
     return out;
 }
 

@@ -37,17 +37,6 @@
 // `= default` is the whole implementation.
 
 namespace modapi::inline block {
-namespace {
-
-std::string fileNameFor(std::string const& identifier) {
-    auto name = identifier;
-    for (char& c : name) {
-        if (c == ':' || c == '/' || c == '\\' || c == '.') c = '_';
-    }
-    return name;
-}
-
-} // namespace
 
 // `Level::loadBlockDefinitionGroup` is where vanilla and every behaviour pack register their block
 // definitions. It is virtual, so the `$` thunk is what gets hooked (the header declares that one as `MCAPI`).
@@ -364,8 +353,6 @@ BlockRegistry& BlockReadyEvent::registry() const { return mRegistry; }
 BlockDescription::BlockDescription()                                                                  = default;
 BlockComponentGroupDescription::BlockComponentGroupDescription()                                      = default;
 BlockComponentGroupDescription::BlockComponentGroupDescription(BlockComponentGroupDescription const&) = default;
-BlockComponentGroupDescription&
-BlockComponentGroupDescription::operator=(BlockComponentGroupDescription const&) = default;
-BlockPermutationDescription::BlockPermutationDescription()                       = default;
-ExpressionNode::ExpressionNode()                                                 = default;
-ServerBlockProperty::ServerBlockProperty()                                       = default;
+BlockPermutationDescription::BlockPermutationDescription()                                            = default;
+ExpressionNode::ExpressionNode()                                                                      = default;
+ServerBlockProperty::ServerBlockProperty()                                                            = default;

@@ -216,8 +216,8 @@ public:
 
     // Injects the property's components into a running block (the engine's own route: `initializeComponentFromCode`
     // with the block's component storage), and keeps the property for the entry a client is sent.
-    MOD_NDAPI void _applyBlockProperty(::BlockType& block, BlockProperty const& property);
-    MOD_NDAPI void _storeBlockProperty(std::string const& identifier, BlockProperty property);
+    MOD_API void _applyBlockProperty(::BlockType& block, BlockProperty const& property);
+    MOD_API void _storeBlockProperty(std::string const& identifier, BlockProperty property);
 
     // Installs a block document as the packs the engine reads it from, and answers the identifier it declares
     // (empty when the document could not be read or installed). `ownType` says whether ModAPI takes the block type
@@ -231,7 +231,7 @@ public:
     // definition group, so a block whose type ModAPI created and which has no document behind it gets no entry -
     // and a client that is not told about a block does not know it. Called from the packet's write path, before
     // anything of the packet has been serialized.
-    MOD_NDAPI void _publishClientProperties(::std::vector<::ServerBlockProperty>& properties);
+    MOD_API void _publishClientProperties(::std::vector<::ServerBlockProperty>& properties);
 
     // The block type registered under `identifier`, or nothing.
     [[nodiscard]] MOD_NDAPI ProductRef getBlock(std::string const& identifier) const;

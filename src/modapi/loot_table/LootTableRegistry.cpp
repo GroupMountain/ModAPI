@@ -31,11 +31,9 @@ namespace modapi::inline loot_table {
 namespace {
 
 // `LootTable::deserialize` reads the document against a format version. It is taken from the engine's
-// own constant rather than parsed from a string: `SemVersion` holds a packed pointer, and a parsed one
-// is owned - its destructor (and the copy on return) then freed a pointer that was not theirs, which
-// crashed inside `mi_free`. The constant's storage is static, so the version stays valid and safe to
-// destroy, and it is the version this build writes its own documents for.
-::SemVersion currentJsonVersion() { return ::SemVersion{::SharedConstants::CurrentGameSemVersion()}; }
+// The version comes from the engine's own constant rather than from a parsed string: `SemVersion` holds a packed
+// pointer, and a parsed one owns its storage, so a copy of it would be destroyed twice. The constant's storage is
+// static, which keeps the version valid and safe to destroy.
 
 // `nlohmann` is what reads the JSON files, but the engine deserializes through its own DOM.
 ::Json::Value toJsonValue(::nlohmann::json const& json) {
@@ -43,17 +41,6 @@ namespace {
     ::Json::Value         value;
     reader.parse(json.dump(), value, true);
     return value;
-}
-
-// "loot_tables/chests/simple_dungeon.json" is the form `LootTables` uses as its key.
-std::string directoryFromPath(std::filesystem::path const& jsonPath) {
-    auto const normalized = jsonPath.generic_string();
-    auto const at         = normalized.rfind("loot_tables/");
-    if (at != std::string::npos) return normalized.substr(at);
-
-    std::string name = jsonPath.filename().generic_string();
-    if (name.empty()) return {};
-    return "loot_tables/" + name;
 }
 
 // `RandomValueBounds` is two floats that LeviLamina emits as unnamed storage, hence `.as<float>()` here;
@@ -112,7 +99,7 @@ bool LootTableRegistry::isReady() const noexcept { return pImpl->mReady; }
 std::unique_ptr<::LootTable> LootTableRegistry::buildTable(std::string const& tableDir, std::string const& rawJson) {
     auto json  = ::nlohmann::json::parse(rawJson, nullptr, true, true);
     auto table = std::make_unique<::LootTable>();
-    table->deserialize(toJsonValue(json), true, currentJsonVersion());
+    table->deserialize(toJsonValue(json), true, ::SemVersion{::SharedConstants::CurrentGameSemVersion()});
     *table->mDir = tableDir;
     return table;
 }
@@ -153,7 +140,15 @@ LootTableRegistry::registerLootTableFromMemoryJson(std::string const& tableDir, 
 }
 
 LootTableRegistry::ProductRef LootTableRegistry::registerLootTableFromJsonFile(std::filesystem::path const& jsonPath) {
-    auto const tableDir = directoryFromPath(jsonPath);
+    // "loot_tables/chests/simple_dungeon.json" is the form `LootTables` uses as the key of a table.
+    auto const  normalized = jsonPath.generic_string();
+    auto const  at         = normalized.rfind("loot_tables/");
+    std::string tableDir;
+    if (at != std::string::npos) {
+        tableDir = normalized.substr(at);
+    } else if (auto const name = jsonPath.filename().generic_string(); !name.empty()) {
+        tableDir = "loot_tables/" + name;
+    }
     if (tableDir.empty()) {
         core::getLogger().error("LootTableRegistry: '{}' is not a loot table path.", jsonPath.string());
         return {};
@@ -188,7 +183,7 @@ LootTableRegistry::registerLootTableFromJsonValue(std::string const& tableDir, :
     }
     try {
         auto built = std::make_unique<::LootTable>();
-        built->deserialize(table, true, currentJsonVersion());
+        built->deserialize(table, true, ::SemVersion{::SharedConstants::CurrentGameSemVersion()});
         return registerLootTable(tableDir, std::move(built));
     } catch (std::exception const& e) {
         core::getLogger().error("LootTableRegistry: could not deserialize the loot table '{}': {}", tableDir, e.what());

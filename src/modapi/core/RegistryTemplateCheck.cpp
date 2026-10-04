@@ -34,7 +34,7 @@ public:
 
     std::vector<std::string> getCraftingTags() const override { return {}; }
 
-    void _init() {}
+    void _init() override {}
 };
 
 class CheckGameRule : public gamerule::ICustomGameRule<bool> {
@@ -62,10 +62,15 @@ public:
     static DeferredRegister<gamerule::GameRuleRegistry, CheckGameRule> checkGameRule;
     // A feature and a rule carry their identifier in the registration structure.
     static DeferredRegister<worldgen::FeatureRegistry, CheckFeature> checkFeature{
-        worldgen::FeatureRegistry::FeatureRegistration<>{.mIdentifier = "modapi:template_check"}
+        worldgen::FeatureRegistry::FeatureRegistration<>{.mIdentifier = "modapi:template_check", .mArguments = {}}
     };
     static DeferredRegister<worldgen::FeatureRuleRegistry, CheckRule> checkRule{
-        worldgen::FeatureRuleRegistration<>{.mIdentifier = "modapi:template_check"}
+        worldgen::FeatureRuleRegistration<>{
+                                            .mIdentifier    = "modapi:template_check",
+                                            .mPlacesFeature = {},
+                                            .mArguments     = {},
+                                            .mPasses        = {}
+        }
     };
 }
 

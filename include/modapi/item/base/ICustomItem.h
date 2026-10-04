@@ -128,16 +128,15 @@ class ICustomItem : public T, public ICustomItemBase {
 public:
     explicit ICustomItem(std::string const& identifier) : T(identifier, 0) {
         // Required, not decoration: it makes the engine treat the item as a data driven one, which is what gives it
-        // the definition machinery a client needs. It was commented out during an experiment and left that way, and
-        // custom items came up blank on a client from then on.
-        mItemParseVersion = ItemVersion::DataDriven;
+        // the definition machinery a client needs.
+        this->mItemParseVersion = ItemVersion::DataDriven;
     }
 
     // For an engine base whose constructor takes more than the identifier (a block item needs its block, for
     // instance). The arguments are whatever `T` asks for, the identifier included.
     template <class... Args>
     explicit ICustomItem(Args&&... args) : T(std::forward<Args>(args)...) {
-        mItemParseVersion = ItemVersion::DataDriven;
+        this->mItemParseVersion = ItemVersion::DataDriven;
     }
 
     ~ICustomItem() override = default;
@@ -149,7 +148,7 @@ public:
     std::unique_ptr<CompoundTag> buildNetworkTag() const override { return buildClientComponents(*this); }
 
     float getDestroySpeed(::ItemStackBase const& item, ::Block const& block) const override {
-        if (isDiggerItem() && !item.isNull() && canDestroySpecial(block)) {
+        if (isDiggerItem() && !item.isNull() && this->canDestroySpecial(block)) {
             auto level = ::EnchantUtils::getEnchantLevel(::Enchant::Type::Efficiency, item);
             return getMiningSpeed() + (float)(level * level) + 1.0f;
         }

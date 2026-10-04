@@ -21,19 +21,21 @@
 #include <fmt/format.h>
 #include <fstream>
 #include <ll/api/event/EventBus.h>
+#include <ll/api/memory/Symbol.h>
+#include <ll/api/service/Bedrock.h>
 #include <mc/server/commands/CommandItem.h>
 #include <mc/server/commands/CommandOutput.h>
 #include <mc/server/commands/CommandOutputType.h>
-#include <ll/api/memory/Symbol.h>
-#include <ll/api/service/Bedrock.h>
 #include <mc/world/item/crafting/Recipe.h>
 #include <mc/world/item/crafting/Recipes.h>
 #include <mc/world/level/Level.h>
+#include <mc/world/level/block/registry/BlockTypeRegistry.h>
 #include <mc/world/level/levelgen/feature/registry/FeatureRegistry.h>
 #include <mc/world/level/storage/GameRules.h>
 #include <optional>
 #include <string>
 #include <vector>
+
 
 namespace {
 
@@ -91,8 +93,18 @@ public:
 
 class TestFeature : public modapi::ICustomFeature {
 public:
-    std::optional<BlockPos> place(modapi::BlockHelper&, BlockPos const&, Random&) const override {
-        return std::nullopt; // registered, but never places anything
+    // Leaves a marker that cannot be mistaken for terrain: bedrock at y=300 of the column the pass runs in.
+    //
+    // Two guards, both about where the handle may write. While a chunk is being generated the handle wraps that chunk,
+    // and writing far above it reaches outside its storage - only a `BlockSource` based handle may write that far. And
+    // y=300 exists in the overworld alone, so the height range check keeps the other dimensions out.
+    std::optional<BlockPos> place(modapi::BlockHelper& helper, BlockPos const& pos, Random&) const override {
+        if (!helper.holdsBlockSource()) return std::nullopt;
+        BlockPos const marker{pos.x, 300, pos.z};
+        if (!helper.isValidPosition(marker)) return std::nullopt;
+        auto const& bedrock = ::BlockTypeRegistry::get().getDefaultBlockState(::HashedString{"minecraft:bedrock"});
+        if (!helper.setBlock(marker, bedrock)) return std::nullopt;
+        return marker;
     }
 };
 
@@ -101,9 +113,9 @@ public:
 // server (and therefore every registry) started.
 // ---------------------------------------------------------------------------------------------
 
-modapi::DeferredRegister<modapi::ItemRegistry, TestItem>                 gItem{std::string{TestItemName}, 42};
-modapi::DeferredRegister<modapi::RecipeRegistry, TestRecipe>             gRecipe;
-modapi::DeferredRegister<modapi::GameRuleRegistry, TestGameRule>         gGameRule;
+modapi::DeferredRegister<modapi::ItemRegistry, TestItem>         gItem{std::string{TestItemName}, 42};
+modapi::DeferredRegister<modapi::RecipeRegistry, TestRecipe>     gRecipe;
+modapi::DeferredRegister<modapi::GameRuleRegistry, TestGameRule> gGameRule;
 // A rule places through the feature it belongs to; this one hands back the position it was called with, which is
 // what the rule path asserted before it became a class of its own.
 class TestRule : public modapi::worldgen::ICustomFeatureRule {
@@ -115,6 +127,15 @@ public:
 
 modapi::DeferredRegister<modapi::worldgen::FeatureRegistry, TestFeature> gFeature{
     modapi::worldgen::FeatureRegistry::FeatureRegistration<>{.mIdentifier = std::string{TestFeatureId}}
+};
+// A rule for a pass the engine really runs, so the feature above is driven by world generation itself. It is a static
+// registration, so it takes part in the level that is configured while the mod loads.
+modapi::DeferredRegister<modapi::worldgen::FeatureRuleRegistry, TestRule> gRule{
+    modapi::worldgen::FeatureRuleRegistration<>{
+        .mIdentifier    = "modapi_test:test_rule",
+        .mPlacesFeature = std::string{TestFeatureId},
+        .mPasses        = {"surface_pass"}
+    }
 };
 
 // Recorded while the test mod loads: no registry may be open yet at that point.
@@ -130,11 +151,11 @@ ReadinessAtLoad gReadyAtLoad;
 
 // Ready event bookkeeping, filled by the listeners installed while the test mod loads.
 struct ReadyEvents {
-    int  item     = 0;
-    int  creative = 0;
-    int  recipe   = 0;
-    int  gameRule = 0;
-    int  feature  = 0;
+    int  item                    = 0;
+    int  creative                = 0;
+    int  recipe                  = 0;
+    int  gameRule                = 0;
+    int  feature                 = 0;
     bool itemRegistryMatches     = true;
     bool creativeRegistryMatches = true;
     bool recipeRegistryMatches   = true;
@@ -329,7 +350,8 @@ void testPreconditions() {
     return nullptr;
 }
 
-// The variant a GameRule stores its value in; read through an explicit reference because the// TypedStorage member has no dereference operator.
+// The variant a GameRule stores its value in; read through an explicit reference because the// TypedStorage member has
+// no dereference operator.
 using GameRuleValue = ::std::variant<::cereal::NullType, bool, int, float>;
 
 GameRuleValue ruleValue(::GameRule const& rule) { return rule.mValue; }
@@ -381,9 +403,9 @@ void testItemApi() {
                 ::CommandItem value;
             };
             Candidate const candidates[] = {
-                {"mVersion 1",  ::CommandItem{{1, true, itemId}}   },
-                {"mVersion -1", ::CommandItem{{-1, true, itemId}}  },
-                {"mVersion 0",  ::CommandItem{{0, true, itemId}}   },
+                {"mVersion 1",  ::CommandItem{{1, true, itemId}} },
+                {"mVersion -1", ::CommandItem{{-1, true, itemId}}},
+                {"mVersion 0",  ::CommandItem{{0, true, itemId}} },
             };
 
             for (auto const& candidate : candidates) {
@@ -392,7 +414,8 @@ void testItemApi() {
                 auto const      got      = instance.has_value() ? instance->getTypeName() : std::string{"<none>"};
                 if (std::string_view{candidate.name} == "mVersion 0") {
                     // The legacy-id conversion path: this is the legacy shape.
-                    report.isTrue("give.legacyIdShapeResolvesNothing", got != TestItemName, fmt::format("got '{}'", got));
+                    report
+                        .isTrue("give.legacyIdShapeResolvesNothing", got != TestItemName, fmt::format("got '{}'", got));
                 } else {
                     report.isTrue(
                         fmt::format("give.{}", candidate.name),
@@ -422,7 +445,7 @@ void testItemApi() {
         report.isTrue("setIcon.unknownItem", !registry.setIcon("modapi_test:definitely_missing", "x"));
 
         report.noThrow("networkTagInfo", [&] {
-            auto& tag = registry.getAndModifyVanillaNetworkTagInfo(TestItemName);
+            auto& tag          = registry.getAndModifyVanillaNetworkTagInfo(TestItemName);
             tag["modapi_test"] = 1;
             report.isTrue("networkTagInfo.mutated", tag.contains("modapi_test"));
         });
@@ -464,7 +487,10 @@ void testCreativeApi() {
         // Removing the entry we just added, then putting it back so the item stays registered.
         auto const removed = inGroup.back();
         report.isTrue("unregisterCreativeItem", registry.unregisterCreativeItem(removed));
-        report.isTrue("unregisterCreativeItem.gone", registry.getCreativeItem(TestItemName).size() == inGroup.size() - 1);
+        report.isTrue(
+            "unregisterCreativeItem.gone",
+            registry.getCreativeItem(TestItemName).size() == inGroup.size() - 1
+        );
 
         ::ItemInstance restored;
         restored.reinit(std::string{TestItemName}, 1, 0);
@@ -484,41 +510,37 @@ void testRecipeApi() {
             stone.reinit("minecraft:stone", 1, 0);
             return stone;
         };
-        auto const stick = modapi::ICustomRecipe::Ingredient{
-            "minecraft:stick",
-            modapi::recipe::RecipeIngredientType::Item,
-            1
-        };
-        auto const stoneIngredient = modapi::ICustomRecipe::Ingredient{
-            "minecraft:stone",
-            modapi::recipe::RecipeIngredientType::Item,
-            1
-        };
+        auto const stick =
+            modapi::ICustomRecipe::Ingredient{"minecraft:stick", modapi::recipe::RecipeIngredientType::Item, 1};
+        auto const stoneIngredient =
+            modapi::ICustomRecipe::Ingredient{"minecraft:stone", modapi::recipe::RecipeIngredientType::Item, 1};
 
         // Shapeless: a real product, findable in the live Recipes instance.
         auto const beforeTotal = countRecipes();
-        auto       shapeless    = registry.registerShapelessRecipe(
+        auto       shapeless   = registry.registerShapelessRecipe(
             "modapi_test:api_shapeless",
             std::vector<modapi::ICustomRecipe::Ingredient>{stick},
             makeStone()
         );
         report.isTrue("shapeless.product", shapeless.has_value());
         report.isTrue("shapeless.findable", recipesContain("modapi_test:api_shapeless"));
-        report.isTrue("shapeless.counted", countRecipes() > beforeTotal, fmt::format("{} -> {}", beforeTotal, countRecipes()));
+        report.isTrue(
+            "shapeless.counted",
+            countRecipes() > beforeTotal,
+            fmt::format("{} -> {}", beforeTotal, countRecipes())
+        );
 
         // Stone cutter: a real product as well.
-        auto stoneCutter = registry.registerStoneCutterRecipe("modapi_test:api_stonecutter", stoneIngredient, makeStone());
+        auto stoneCutter =
+            registry.registerStoneCutterRecipe("modapi_test:api_stonecutter", stoneIngredient, makeStone());
         report.isTrue("stoneCutter.product", stoneCutter.has_value());
         report.isTrue("stoneCutter.findable", recipesContain("modapi_test:api_stonecutter"));
 
         // Furnace and brewing recipes are not `Recipe` instances, so they have no product - a
         // furnace recipe lands in its own table (keyed by input item id and aux value) instead.
         // A furnace input is keyed by a concrete item id and aux value, so this ingredient carries one.
-        auto const furnaceIngredient = modapi::ICustomRecipe::Ingredient{
-            "minecraft:stick",
-            static_cast<uint8_t>(1),
-            static_cast<short>(0)
-        };
+        auto const furnaceIngredient =
+            modapi::ICustomRecipe::Ingredient{"minecraft:stick", static_cast<uint8_t>(1), static_cast<short>(0)};
         ::ItemInstance furnaceInput;
         furnaceInput.reinit("minecraft:stick", 1, 0);
         auto const& furnaceResults = *ll::service::getLevel()->getRecipes().mFurnaceResults;
@@ -566,16 +588,20 @@ void testRecipeApi() {
         report.isTrue("json.emptyObject", !registry.registerRecipeFromMemoryJson("{}").has_value());
         report.isTrue(
             "json.unknownKey",
-            !registry.registerRecipeFromMemoryJson(
-                 R"({"minecraft:recipe_definitely_unknown":{"description":{"identifier":"modapi_test:unknown"}}})"
-            )
+            !registry
+                 .registerRecipeFromMemoryJson(
+                     R"({"minecraft:recipe_definitely_unknown":{"description":{"identifier":"modapi_test:unknown"}}})"
+                 )
                  .has_value()
         );
         report.isTrue(
             "json.missingIdentifier",
             !registry.registerRecipeFromMemoryJson(R"({"minecraft:recipe_shaped":{"description":{}}})").has_value()
         );
-        report.isTrue("json.missingFile", !registry.registerRecipeFromJsonFile("plugins/test/definitely-missing.json").has_value());
+        report.isTrue(
+            "json.missingFile",
+            !registry.registerRecipeFromJsonFile("plugins/test/definitely-missing.json").has_value()
+        );
         report.isTrue("json.directoryPath", !registry.registerRecipeFromJsonFile("plugins/test").has_value());
     });
 }
@@ -657,7 +683,10 @@ void testFeatureApi() {
         // constructor arguments and the passes. There is no product outside a feature pass, but the rule is
         // remembered for the levels configured later.
         auto rule = modapi::worldgen::FeatureRuleRegistry::getInstance().registerEntry<TestRule>(
-            modapi::worldgen::FeatureRuleRegistration<>{.mIdentifier = "modapi_test:api_rule_feature", .mPasses = {"modapi_test_pass"}}
+            modapi::worldgen::FeatureRuleRegistration<>{
+                .mIdentifier = "modapi_test:api_rule_feature",
+                .mPasses     = {"modapi_test_pass"}
+            }
         );
         report.isTrue("registerFeatureRule.product", rule.has_value());
         // The rule's feature is rebuilt for the levels configured *after* the rule was added, so it
@@ -678,10 +707,10 @@ void testDeferredExtras() {
         // `CreativeGroupInfo::_addCreativeItemEntry` is the engine's own "record the entry in its
         // group" step, and the only header declared (MCAPI, i.e. resolvable) symbol for it. ModAPI
         // calls it when it adds a creative item, so this has to resolve on the server build.
-        auto* addEntry = ll::memory::SymbolView{
-                             "?_addCreativeItemEntry@CreativeGroupInfo@@QEAAXPEAVCreativeItemEntry@@@Z"
-        }
-                             .resolve(true);
+        auto* addEntry =
+            ll::memory::SymbolView{"?_addCreativeItemEntry@CreativeGroupInfo@@QEAAXPEAVCreativeItemEntry@@@Z"}.resolve(
+                true
+            );
         report.isTrue("creative.addEntrySymbolResolved", addEntry != nullptr);
         if (addEntry != nullptr) {
             test::getLogger().info("[REGISTRY] _addCreativeItemEntry trampoline = 0x{:X}", (uintptr_t)addEntry);
@@ -781,13 +810,13 @@ int runRegistryTests() {
     testJsonRecipe();
     testPreconditions();
 
-        testItemApi();
-        testCreativeApi();
-        testRecipeApi();
-        testGameRuleApi();
-        testFeatureApi();
-        testDeferredExtras();
-        testReadyEvents();
+    testItemApi();
+    testCreativeApi();
+    testRecipeApi();
+    testGameRuleApi();
+    testFeatureApi();
+    testDeferredExtras();
+    testReadyEvents();
 
     report.finish();
     return report.failed();
@@ -844,11 +873,12 @@ void registerTestModStateProbe() {
     });
 }
 
-void registerRegistryTestCommand() { registerTestFunction("registry", [] { return runRegistryTests() == 0; }); }
+void registerRegistryTestCommand() {
+    registerTestFunction("registry", [] { return runRegistryTests() == 0; });
+}
 
 } // namespace
 
 REGISTER_ON_LOAD_TEST(RegistryProbe, registerTestModStateProbe)
 REGISTER_ON_LOAD_TEST(RegistryCommand, registerRegistryTestCommand)
 REGISTER_TEST(Registry, runRegistryTests)
-

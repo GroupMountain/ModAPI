@@ -1,4 +1,3 @@
-#pragma include_alias("mc/deps/shared_types/util/Reference.h", "modapi/item/ReferencePatched.h")
 #include "modapi/item/ItemRegistry.h"
 #include "modapi/block/BlockRegistry.h"
 #include "modapi/core/RegistryEvent.h"
@@ -359,28 +358,14 @@ bool ItemRegistry::setRepairItem(std::string_view itemName, std::string_view fix
     return pImpl->mModifiedVanillaItems.at(std::string(itemName));
 }
 
-// Where an item's definition for a client is written. Two hooks call the same code: the payload constructor
-// produces `mItems` (every sending path goes through it), and `writeWithSerializationMode` is the serialization
-// different virtual and hooking it (which this did) never ran, so no custom item definition ever reached a
-// client and the client reported "requires either an icon atlas or icon texture".
+// Where an item's definition for a client is written. The payload constructor produces `mItems`, and every sending
+// path goes through it, so a custom item's definition is filled in here.
 void prepareItemDefinitions(::std::vector<::ItemData>& items) {
     auto& impl = *ItemRegistry::getInstance().pImpl;
 
-    int custom = 0;
-    for (auto& item : items) {
-        if (impl.mCustomItemNames.contains(*item.mName)) ++custom;
-    }
-
-    // A client only registers a block item when it is in the payload the server sends, so which block items are in
-    // there is worth naming: the engine builds an item for every block definition it has, and whether one of them
-    // actually reaches a client is not something a mod can see anywhere else.
-    for (auto& item : items) {
-        if (BlockRegistry::getInstance().getBlock(item.mName->getString())) {}
-    }
-
-    // Merge a description into what the engine publishes for that item, instead of replacing the whole node:
-    // the sources below are built from `Item::buildNetworkTag()`, which for a data driven item carries almost
-    // replacing `components` dropped everything the item had.
+    // Merge a description into what the engine publishes for that item instead of replacing the whole node: the
+    // sources below are built from `Item::buildNetworkTag()`, which for a data driven item carries almost nothing, so
+    // replacing `components` would drop everything the item already had.
     auto merge = [](::CompoundTag& published, ::CompoundTag const& source) {
         for (auto const& [key, value] : source) {
             if (key == "item_properties" && published.mTags.contains(key)) {
@@ -394,9 +379,8 @@ void prepareItemDefinitions(::std::vector<::ItemData>& items) {
     };
 
     for (auto& item : items) {
-        // The node may not hold a compound yet - a custom item's entry is nearly empty - and reading it as one
-        // throws "bad variant access", which aborted this whole merge on every custom item, so nothing ever
-        // reached a client.
+        // The node may not hold a compound yet - a custom item's entry is nearly empty - so it is created when it is
+        // missing instead of being read unconditionally.
         ::CompoundTag* components = nullptr;
         try {
             components = &(*item.mComponentData)["components"].get<::CompoundTag>();

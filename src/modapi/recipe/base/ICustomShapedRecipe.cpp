@@ -36,8 +36,8 @@ CustomShapedRecipeBase::CustomShapedRecipeBase(
     mWidth    = 0;
     mHeight   = (int)shape.size();
     for (auto shapeline : shape) {
-        if (shapeline.size() > mWidth) {
-            mWidth = (int)shapeline.size();
+        if (auto const width = static_cast<int>(shapeline.size()); width > mWidth) {
+            mWidth = width;
         }
         for (auto& c : shapeline) {
             auto key = std::string(1, c);

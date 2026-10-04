@@ -58,7 +58,7 @@ public:
     std::string mBlockName;
 
     // The client side of the item: what `ItemRegistryPacket` sends for it.
-    MOD_API std::unique_ptr<::CompoundTag> buildNetworkTag() const;
+    MOD_API std::unique_ptr<::CompoundTag> buildNetworkTag() const override;
 
     // Applies the overrides above onto this item.
     MOD_API void _init();

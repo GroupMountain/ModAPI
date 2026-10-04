@@ -9,13 +9,10 @@
 namespace modapi::inline item {
 namespace {
 
-::HashedString const& blockNameOf(::BlockType const& block) { return *block.mNameInfo->mFullName; }
-
-// Vanilla's own rule, read out of `ItemRegistryRef::registerBlockItem<BlockItem>`: the item for a block is built
-// as `BlockItem(name, foldedBlockId, blockName)`, with the block's id folded into a short
-// (`id <= 0xFF ? id : 255 - id`)
-// block id 10002 -> item id -9747); handing `::BlockItem` anything else leaves its internal state disagreeing
-// with `mId`, which is what produced a creative slot nothing could be done with.
+// Vanilla's own rule, read out of `ItemRegistryRef::registerBlockItem<BlockItem>`: the item for a block is built as
+// `BlockItem(name, foldedBlockId, blockName)`, with the block's id folded into a short (`id <= 0xFF ? id : 255 - id`,
+// so block id 10002 becomes item id -9747). Handing `::BlockItem` anything else leaves its internal state disagreeing
+// with `mId`, which produces a creative slot nothing can be done with.
 short itemIdOf(::HashedString const& blockName) {
     auto const* block = ::BlockTypeRegistry::get().lookupByName(blockName, false);
     if (block == nullptr) return 0;
@@ -27,15 +24,13 @@ short itemIdOf(::HashedString const& blockName) {
 
 ICustomBlockItem::ICustomBlockItem(std::string const& identifier, ::HashedString const& blockName)
 : ::BlockItem(identifier, itemIdOf(blockName), blockName) {
-    // the creative inventory). With it the client treats the item as a `ComponentItem`, so its icon has to come
-    // from an icon component, which draws a flat texture: a three dimensional icon is only produced for an item a
-    // client links to a block, and that is what the engine's own item for a block gets.
+    // Data driven is what gives the item the definition machinery a client needs.
     mItemParseVersion = ItemVersion::DataDriven;
     mBlockName        = blockName.getString();
 }
 
 ICustomBlockItem::ICustomBlockItem(std::string const& identifier, ::BlockType const& block)
-: ICustomBlockItem(identifier, blockNameOf(block)) {}
+: ICustomBlockItem(identifier, *block.mNameInfo->mFullName) {}
 
 ICustomBlockItem::~ICustomBlockItem() = default;
 

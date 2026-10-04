@@ -40,19 +40,6 @@ ModAPI& ModAPI::getInstance() {
     return instance;
 }
 
-// The registry ready events are owned by ModAPI and have to be registered before a consumer can
-// listen to them. This cannot happen from a static initialiser (the mod manager has not published
-// ModAPI's own mod instance yet), so it happens here; `DeferredRegister` re-tries it anyway.
-static void registerRegistryEvents() {
-    modapi::item::ItemRegistry::ensureEventRegistered();
-    modapi::item::CreativeItemRegistry::ensureEventRegistered();
-    modapi::recipe::RecipeRegistry::ensureEventRegistered();
-    modapi::gamerule::GameRuleRegistry::ensureEventRegistered();
-    modapi::worldgen::FeatureRegistry::ensureEventRegistered();
-    modapi::loot_table::LootTableRegistry::ensureEventRegistered();
-    modapi::block::BlockRegistry::ensureEventRegistered();
-}
-
 bool ModAPI::load() {
     if (ll::getGamingStatus() == ll::GamingStatus::Running) {
         getLogger().error("It is prohibited to load ModAPI mod when the server is running.");
@@ -67,7 +54,16 @@ bool ModAPI::load() {
     );
     correctManifest();
     printLogo();
-    registerRegistryEvents();
+    // The registry ready events are owned by ModAPI and have to be registered before a consumer can listen to them.
+    // This cannot happen from a static initialiser (the mod manager has not published ModAPI's own mod instance yet),
+    // so it happens here; `DeferredRegister` re-tries it anyway.
+    modapi::item::ItemRegistry::ensureEventRegistered();
+    modapi::item::CreativeItemRegistry::ensureEventRegistered();
+    modapi::recipe::RecipeRegistry::ensureEventRegistered();
+    modapi::gamerule::GameRuleRegistry::ensureEventRegistered();
+    modapi::worldgen::FeatureRegistry::ensureEventRegistered();
+    modapi::loot_table::LootTableRegistry::ensureEventRegistered();
+    modapi::block::BlockRegistry::ensureEventRegistered();
     return true;
 }
 

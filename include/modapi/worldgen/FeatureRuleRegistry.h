@@ -31,14 +31,18 @@ public:
     MOD_NDAPI FeatureRuleRegistry& registry() const;
 };
 
-// What to register, in one place, mirroring `BlockRegistration`: the identifier, the constructor arguments of
-// `Entry` and the passes the rule takes part in. The call site names the type:
+// What to register, in one place, mirroring `BlockRegistration`: the identifier, the feature whose placement this rule
+// drives, the constructor arguments of `Entry` and the passes the rule takes part in. The call site names the type:
 //   DeferredRegister<FeatureRuleRegistry, MyRule> gRule{
-//       FeatureRuleRegistration<>{ .mIdentifier = "mymod:my_rule", .mPasses = {"mymod:trees"} }
+//       FeatureRuleRegistration<>{
+//           .mIdentifier = "mymod:my_rule", .mPlacesFeature = "mymod:my_feature", .mPasses = {"mymod:trees"}
+//       }
 //   };
 template <class... Args>
 struct FeatureRuleRegistration {
-    std::string         mIdentifier;
+    std::string mIdentifier;
+    // The registered feature that does the placing: the rule only yields the positions it is called with.
+    std::string         mPlacesFeature;
     std::tuple<Args...> mArguments;
     // The passes the rule takes part in; empty means every pass the level configures.
     std::vector<std::string> mPasses;
@@ -80,7 +84,12 @@ public:
                 },
                 std::move(registration.mArguments)
             );
-            return _registerRule(registration.mIdentifier, registration.mPasses, std::move(rule));
+            return _registerRule(
+                registration.mIdentifier,
+                registration.mPlacesFeature,
+                registration.mPasses,
+                std::move(rule)
+            );
         } catch (...) {
             return {};
         }
@@ -89,6 +98,7 @@ public:
     // Registers one rule into the currently bound registry.
     MOD_NDAPI ProductRef _registerRule(
         std::string const&                  identifier,
+        std::string const&                  placesFeature,
         std::vector<std::string> const&     passes,
         std::unique_ptr<ICustomFeatureRule> rule
     );
