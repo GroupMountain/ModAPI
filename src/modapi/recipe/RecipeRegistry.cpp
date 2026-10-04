@@ -53,7 +53,7 @@ namespace {
 }
 
 // `_loadRecipe` takes the recipe id and type as separate arguments now; the id is the
-// `description.identifier` the old `loadRecipe` used to pull out itself.
+// `description.identifier` it reads itself.
 bool loadRecipeFromJson(
     ::Recipes&                recipes,
     ::RecipeType              type,

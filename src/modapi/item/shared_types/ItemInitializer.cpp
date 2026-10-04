@@ -13,7 +13,7 @@ void initCustomItem(ICustomBlockItem& item) {
     item.mShouldDespawn        = item.shouldDespawn();
     item.mIsGlint              = item.isFoil();
     // A creative category is what makes the engine list the item itself, so nothing has to be queued for it.
-    // (Giving a block item one used to crash, while it was built with id 0; it is built with the id derived
+    // (A category cannot be set before the item has an id; it is built with the id derived
     // from its block now, the way vanilla does it.)
     item.mCreativeCategory = item.getCreativeCategory();
     item.mCreativeGroup    = item.getCreativeGroup();

@@ -99,7 +99,7 @@ modernize-use-uncaught-exceptions,
 mpi-buffer-deref,
 mpi-type-mismatch,
 openmp-use-default-none,
-performance-faster-string-find,
+performance-prefer-single-char-overloads,
 performance-for-range-copy,
 performance-implicit-conversion-in-loop,
 performance-inefficient-algorithm,
@@ -132,3 +132,8 @@ readability-static-accessed-through-instance,
 readability-static-definition-in-anonymous-namespace,
 readability-string-compare,
 readability-uniqueptr-delete-release'
+
+# Only this repository's own sources and headers are reported. Everything under the LeviLamina package
+# (`mc/...`, and the engine headers copied into `include/modapi/item/types/mc/`) is generated code that is
+# not ours to change, and it produces the vast majority of the diagnostics.
+HeaderFilterRegex: 'ModAPI[\\/](src|src-test|include[\\/]modapi)[\\/]'

@@ -131,7 +131,6 @@ std::unique_ptr<::CompoundTag> buildClientComponents(ICustomBlockItem const& ite
     properties["use_duration"]   = item.mMaxUseDuration;
 
     // No `minecraft:icon` here on purpose. `ComponentItem::getIconInfo` reads the icon *component* first and only
-    // falls back to the block when there is none (old build: `v8 = item[67]` - the component - and only in the
     // `else` branch does it look at the item's block). Writing an icon therefore takes the block out of the
     // picture and pins the item to a flat texture; with `minecraft:block_placer` declared below, the block is
 

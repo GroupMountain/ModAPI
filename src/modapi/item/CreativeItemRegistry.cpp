@@ -31,21 +31,10 @@ namespace modapi::inline item {
 struct ServerInitCreativeItemsCallbackHook;
 
 struct CreativeItemRegistry::Impl {
-    struct PendingItem {
-        ::ItemInstance                      mItem;
-        ::SharedTypes::CreativeItemCategory mCategory;
-        std::string                         mGroup;
-    };
-
     ll::memory::HookRegistrar<ServerInitCreativeItemsCallbackHook> mHook;
     // The creative item registry vanilla built for the current pass. Vanilla constructs a new one
     // for every creative item pass, so this is refreshed by the hook below.
     ::CreativeItemRegistry* mRegistry = nullptr;
-    // Items asked for before the creative pass ran. The engine lists a plain item itself, but not the item of a
-    // block whose type ModAPI registered: it creates items only for the blocks it parses from documents, so that
-    // one has to be replayed into each pass. Replaying cannot duplicate anything, because
-    // `registerCreativeItem` replaces an entry rather than appending a second one.
-    std::vector<PendingItem> mPendingItems;
 };
 
 
@@ -104,11 +93,6 @@ void CreativeItemRegistry::ensureEventRegistered() {
 
 void CreativeItemRegistry::_bindRegistry(::CreativeItemRegistry& registry) {
     pImpl->mRegistry = &registry;
-    // Replay what was asked for before this pass. `registerCreativeItem` replaces, so this stays at one entry
-    // per item however often it runs.
-    for (auto& pending : pImpl->mPendingItems) {
-        (void)registerCreativeItem(::ItemInstance{pending.mItem}, pending.mCategory, pending.mGroup);
-    }
     ll::event::EventBus::getInstance().publish(CreativeItemReadyEvent{*this});
 }
 
@@ -167,11 +151,8 @@ CreativeItemRegistry::ProductRef CreativeItemRegistry::registerCreativeItem(
     if ((int)category < 1 || (int)category > 4) return {};
 
     if (pImpl->mRegistry == nullptr) {
-        // Before the creative pass: remember it and replay it into whatever registry each pass builds. Only
-        // items the engine does not list itself need this - see `ItemRegistry::_registerItem`.
-        try {
-            pImpl->mPendingItems.push_back(Impl::PendingItem{std::move(item), category, std::string{itemGroup}});
-        } catch (...) {}
+        // Nothing to add to yet. A caller that needs an entry this early should not exist: the engine lists an item
+        // that has a creative category itself, and ModAPI gives its items one while initializing them.
         return {};
     }
 

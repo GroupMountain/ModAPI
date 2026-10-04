@@ -12,6 +12,7 @@
 #include <mc/world/level/block/components/BlockMaterialInstance.h>
 #include "modapi/item/ItemRegistry.h"
 #include "modapi/item/base/ICustomArmorItem.h"
+#include "modapi/item/CreativeItemRegistry.h"
 #include "modapi/item/base/ICustomBlockItem.h"
 #include "modapi/item/base/ICustomFoodItem.h"
 #include "modapi/item/base/ICustomToolItem.h"
@@ -103,9 +104,7 @@ public:
     TestItem(std::string const& identifier) : ICustomItem(identifier) {
     }
 
-    // A vanilla icon name on purpose, as a probe: the client showed the name from the language file (so the
-    // pack is applied) but no icon, so this tells apart "the definition does not reach the client" (still
-    // blank) from "our own atlas entry is the problem" (a diamond appears).
+    // An icon name the test pack maps.
     modapi::ItemIcon getIcon() const override { return ::modapi::ItemIcon{"modapi_test_block"}; }
     uint8_t                  getItemMaxStackSize() const override { return 16; }
     bool                     isFoil() const override { return true; }
@@ -302,7 +301,7 @@ int runBlockTests() {
             ::BlockTypeRegistry::get().lookupByName(::HashedString{TestBlockName}, false) == block.as_ptr()
         );
         // The engine's type for this identifier is the C++ object, not one it built from the JSON document:
-        // that is the combination ModAPI has to keep working (and that used to crash the server).
+        // that is the combination ModAPI has to keep working.
         report.isTrue(
             "jsonDefinition.cppObjectIsTheRegisteredType",
             ::BlockTypeRegistry::get().lookupByName(::HashedString{TestBlockName}, false) == block.as_ptr()
@@ -476,6 +475,13 @@ int runBlockTests() {
             test::getLogger().info("[BLOCKS] registered item '{}' ({}) found: {}", label, name, static_cast<bool>(item));
             report.isTrue(std::string{"items."} + label + "Registered", static_cast<bool>(item));
         }
+
+        // The block item is listed in a creative inventory by the ready listener the mod installs, so this is what
+        // tells whether a mod can put its own item there at all.
+        report.isTrue(
+            "items.blockInCreative",
+            !modapi::CreativeItemRegistry::getInstance().getCreativeItem("modapi_test:test_block").empty()
+        );
 
         // What a client is actually sent. `buildNetworkTag()` is only a local call - the data a client reads
         // comes out of this packet, so build one here and look at this item's entry. This also proves the hook
@@ -805,6 +811,19 @@ void registerBlockTestCommand() {
     // registered here: `gTestBlock` names the identifier and the document is installed by the registration itself,
     // so the C++ type stays the one that runs while the engine and a client both know the block.
     // The block has no document: it is registered from C++ alone, and ModAPI publishes it to clients itself.
+
+    // A block item for a block whose type came from C++ is built by ModAPI, not by the engine, and the engine only
+    // puts the items it built itself into a creative pass. Its item therefore has to be handed to the creative
+    // registry by the mod, and the ready event is where the registry of the current pass first exists.
+    test::listen<modapi::CreativeItemReadyEvent>([](modapi::CreativeItemReadyEvent& event) {
+        ::ItemInstance icon;
+        icon.reinit("modapi_test:test_block", 1, 0);
+        (void)event.registry().registerCreativeItem(
+            std::move(icon),
+            ::SharedTypes::CreativeItemCategory::Construction,
+            ""
+        );
+    });
 
     registerTestFunction("blocks", [] { return runBlockTests() == 0; });
 }

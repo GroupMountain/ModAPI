@@ -53,8 +53,8 @@ std::string fileNameFor(std::string const& identifier) {
 // definitions. It is virtual, so the `$` thunk is what gets hooked (the header declares that one as `MCAPI`).
 //
 // This is also the registration point for custom blocks, and it is early enough for everything that follows:
-// measured on the test server, the level loads its definitions at 04.384 and vanilla builds its items at
-// 04.777, so a block type registered right after the definitions is there when a block item looks for it -
+// the level loads its definitions before vanilla builds its items, so a block type registered right after
+// the definitions is there when a block item looks for it -
 // and still before the registry builds block states and before `StartGamePacket` collects the properties
 // clients are told about.
 LL_TYPE_INSTANCE_HOOK(
@@ -245,20 +245,10 @@ void BlockRegistry::_publishClientProperties(::std::vector<::ServerBlockProperty
                 tag["permutations"].push_back(permutationTag);
             }
 
-            core::getLogger().info(
-                "BlockRegistry: told clients about '{}' (block id {}) from the property it was registered with.",
-                identifier,
-                (int)block->mID->mValue
-            );
             continue;
         }
 
         properties.push_back(_buildBlockProperty(identifier, (int)block->mID->mValue));
-        core::getLogger().info(
-            "BlockRegistry: told clients about '{}' (block id {}) - no definition of its own.",
-            identifier,
-            (int)block->mID->mValue
-        );
     }
 }
 
@@ -341,7 +331,6 @@ int BlockRegistry::_allocateBlockId(std::string const& identifier) {
     // The definition group's counter starts above the vanilla block ids - the range the engine uses for blocks
     // that did not come with the base game.
     auto const id = ++pImpl->mGroup->mLastBlockId;
-    core::getLogger().info("BlockRegistry: registering '{}' with block id {}.", identifier, id);
     return id;
 }
 

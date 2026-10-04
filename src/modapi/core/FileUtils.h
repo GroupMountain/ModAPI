@@ -8,7 +8,7 @@
 
 namespace modapi::inline core {
 
-// Internal file helpers. ModAPI used to depend on gmlib::file_utils for these two calls.
+// Internal file helpers.
 // Both return an empty optional / false instead of throwing.
 
 inline std::optional<std::string> readFile(std::filesystem::path const& filePath, bool isBinary = false) {

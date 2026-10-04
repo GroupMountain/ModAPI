@@ -69,14 +69,20 @@ std::string manifest(
     std::string const& moduleUuid
 ) {
     std::ostringstream os;
-    os << "{\n  \"format_version\": 2,\n  \"header\": {\n"
-       << "    \"name\": \"" << escape(name) << "\",\n"
-       << "    \"description\": \"Built at runtime by ModAPI\",\n"
-       << "    \"uuid\": \"" << headerUuid << "\",\n"
-       << "    \"version\": [1, 0, 0],\n"
-       << "    \"min_engine_version\": [1, 21, 0]\n  },\n"
-       << "  \"modules\": [{\"type\": \"" << escape(moduleType) << "\", \"uuid\": \"" << moduleUuid
-       << "\", \"version\": [1, 0, 0]}]\n}\n";
+    os << R"({"format_version": 2,
+  "header": {
+    "name": ")"
+       << escape(name) << R"(",
+    "description": "Built at runtime by ModAPI",
+    "uuid": ")"
+       << headerUuid << R"(",
+    "version": [1, 0, 0],
+    "min_engine_version": [1, 21, 0]
+  },
+  "modules": [{"type": ")"
+       << escape(moduleType) << R"(", "uuid": ")" << moduleUuid << R"(", "version": [1, 0, 0]}]
+}
+)";
     return os.str();
 }
 
@@ -159,13 +165,6 @@ bool RuntimePack::install() {
     // and puts them into the stack clients are sent.
     AddonsLoader::getInstance().addCustomPackPath(pImpl->mContainer);
 
-    core::getLogger().info(
-        "RuntimePack[{}]: installed as a '{}' pack with uuid {} from '{}'.",
-        pImpl->mName,
-        pImpl->mModuleType,
-        pImpl->mHeaderUuid,
-        pImpl->mRoot.string()
-    );
     return true;
 }
 

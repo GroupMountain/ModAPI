@@ -179,24 +179,8 @@ ItemRegistry::ProductRef ItemRegistry::_registerItem(std::function<std::unique_p
         // Remembered so the item definition packet can be filled in for it (the engine has none).
         pImpl->mCustomItemNames.insert(name->getString());
 
-        // A block whose type ModAPI registered is the one case the engine does not list: it creates items for
-        // the blocks it parses out of documents, and this block's type came from C++. Its item is queued for the
-        // creative pass instead. Queueing cannot duplicate anything - `registerCreativeItem` replaces.
-        if (sharedItem->mBlockType != nullptr) {
-            ::ItemInstance creativeItem;
-            creativeItem.reinit(sharedItem->mFullName->getString(), 1, 0);
-            core::getLogger().info(
-                "ItemRegistry: '{}' is a block item - queued for the creative pass (category {}, group '{}').",
-                name->getString(),
-                (int)sharedItem->mCreativeCategory,
-                *sharedItem->mCreativeGroup
-            );
-            (void)CreativeItemRegistry::getInstance().registerCreativeItem(
-                std::move(creativeItem),
-                sharedItem->mCreativeCategory,
-                *sharedItem->mCreativeGroup
-            );
-        }
+        // A block item is listed by the engine itself, because it carries a creative category: `ICustomBlockItem`
+        // hands one over and `ItemInitializer` writes it onto the item. Nothing has to be queued for it.
         if (!registered) {
             if (sharedItem->mIsHiddenInCommands == ::ItemCommandVisibility::Visible) {
                 registerCommandItemEnum(
@@ -206,7 +190,7 @@ ItemRegistry::ProductRef ItemRegistry::_registerItem(std::function<std::unique_p
                         // `CommandItem` is `{mVersion, mOverrideAux, mId}` (a union packed into
                         // `mVersionId`). `mVersion` has to be non-zero: `CommandItem::createInstance` only takes
                         // `mId` as the item's own id then - with 0 it converts the value as a *legacy* id through
-                        // a different table, so `/give <custom item>` silently produced nothing.
+                        // a different table, which resolves the id to the wrong item.
                         {sharedItem->mFullName->getString(), {{{1, true, (int)sharedItem->mId}}}}
                 }
                 );
@@ -377,7 +361,6 @@ bool ItemRegistry::setRepairItem(std::string_view itemName, std::string_view fix
 
 // Where an item's definition for a client is written. Two hooks call the same code: the payload constructor
 // produces `mItems` (every sending path goes through it), and `writeWithSerializationMode` is the serialization
-// entry the old build shows reaching `serialize<ItemRegistryPacketPayload>::write` directly - `write` is a
 // different virtual and hooking it (which this did) never ran, so no custom item definition ever reached a
 // client and the client reported "requires either an icon atlas or icon texture".
 void prepareItemDefinitions(::std::vector<::ItemData>& items) {
@@ -387,24 +370,16 @@ void prepareItemDefinitions(::std::vector<::ItemData>& items) {
     for (auto& item : items) {
         if (impl.mCustomItemNames.contains(*item.mName)) ++custom;
     }
-    core::getLogger().info(
-        "ItemRegistry: preparing item definitions for a client: {} entries, {} of them custom",
-        items.size(),
-        custom
-    );
 
     // A client only registers a block item when it is in the payload the server sends, so which block items are in
     // there is worth naming: the engine builds an item for every block definition it has, and whether one of them
     // actually reaches a client is not something a mod can see anywhere else.
     for (auto& item : items) {
-        if (BlockRegistry::getInstance().getBlock(item.mName->getString())) {
-            core::getLogger().info("ItemRegistry: the payload carries the block item '{}'.", item.mName->getString());
-        }
+        if (BlockRegistry::getInstance().getBlock(item.mName->getString())) {}
     }
 
     // Merge a description into what the engine publishes for that item, instead of replacing the whole node:
     // the sources below are built from `Item::buildNetworkTag()`, which for a data driven item carries almost
-    // nothing (measured: `minecraft:stick` came out as 37 chars holding only `minecraft:hand_equipped`), so
     // replacing `components` dropped everything the item had.
     auto merge = [](::CompoundTag& published, ::CompoundTag const& source) {
         for (auto const& [key, value] : source) {

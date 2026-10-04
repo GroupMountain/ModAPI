@@ -8,6 +8,7 @@ add_repositories("liteldev-repo https://github.com/LiteLDev/xmake-repo.git")
 set_toolchains("clang-cl")
 
 add_requires("levilamina 26.51.*", {configs = {target_type = "server"}})
+add_requires("levibuildscript 0.6.*")
 add_requires("minizip-ng 4.0.9")
 
 if not has_config("vs_runtime") then
@@ -15,7 +16,7 @@ if not has_config("vs_runtime") then
 end
 
 target("ModAPI")
-    add_rules("linkrule")
+    add_rules("@levibuildscript/linkrule")
     add_cxflags(
         "/EHsc",
         "/utf-8",

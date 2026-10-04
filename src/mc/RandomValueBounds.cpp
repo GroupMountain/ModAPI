@@ -14,12 +14,6 @@ RandomValueBounds::RandomValueBounds() {
     mUnk79891e.as<float>() = 0.0f;
 }
 
-RandomValueBounds::RandomValueBounds(RandomValueBounds const& other)
-: mUnk98064d(other.mUnk98064d),
-  mUnk79891e(other.mUnk79891e) {}
+RandomValueBounds::RandomValueBounds(RandomValueBounds const& other) = default;
 
-RandomValueBounds& RandomValueBounds::operator=(RandomValueBounds const& other) {
-    mUnk98064d = other.mUnk98064d;
-    mUnk79891e = other.mUnk79891e;
-    return *this;
-}
+RandomValueBounds& RandomValueBounds::operator=(RandomValueBounds const& other) = default;

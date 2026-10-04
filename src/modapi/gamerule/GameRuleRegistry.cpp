@@ -20,7 +20,7 @@ struct GameRuleRegistry::Impl {
 
     // The instance a registration has to be appended to. The level's own GameRules wins: the hook
     // also fires for temporary instances (settings parsing, copies) which are already gone when a mod
-    // registers afterwards, and appending to those is what used to crash.
+    // registers afterwards, and appending to those is what makes it unsafe.
     [[nodiscard]] ::GameRules* currentRules() const {
         if (auto level = ll::service::getLevel()) return &level->getGameRules();
         return mCurrentRules;

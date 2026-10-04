@@ -211,7 +211,6 @@ LootTableRegistry::registerLootTable(std::string const& tableDir, std::unique_pt
         auto& slot   = pImpl->mOwnedTables[tableDir];
         slot         = std::move(table);
         auto* result = slot.get();
-        core::getLogger().info("LootTableRegistry: registered the loot table '{}'.", tableDir);
         return result;
     } catch (std::exception const& e) {
         core::getLogger().error("LootTableRegistry: could not register the loot table '{}': {}", tableDir, e.what());

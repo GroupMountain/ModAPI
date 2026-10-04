@@ -10,7 +10,7 @@ target("test")
     set_kind("shared")
     add_deps("ModAPI")
     set_exceptions("cxx")
-    add_rules("linkrule")
+    add_rules("@levibuildscript/linkrule")
     add_cxflags(
         "/EHsc",
         "/utf-8",

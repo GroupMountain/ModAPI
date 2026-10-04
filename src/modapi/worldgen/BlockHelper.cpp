@@ -20,9 +20,8 @@ bool checkPosition(BlockSource const* source, BlockPos const& pos) {
     return source->hasChunksAt(pos, 0, false) && inHeightRange(source->mDimension.mHeightRange, pos);
 }
 
-// The local coordinate has to be *inside* the chunk. Only comparing the high edge (as this used to
-// do) accepted a position before the chunk - `origin - 1` - which was then written to a wrapped
-// local coordinate, i.e. to a block of the neighbouring chunk.
+// The local coordinate has to be *inside* the chunk: comparing only the high edge would accept the position before
+// the chunk - `origin - 1` - which then wraps into the neighbouring chunk.
 bool checkPosition(LevelChunk const* chunk, BlockPos const& pos) {
     auto const chunkPos = *chunk->mPosition;
     auto const localX   = pos.x - chunkPos.x * ChunkSize;

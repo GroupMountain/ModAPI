@@ -7,7 +7,7 @@
 namespace modapi::inline addons {
 
 // Minimal read-only zip reader built directly on minizip-ng.
-// Replaces gmlib::zip_utils::Unzipper, which AddonsLoader used to extract addon packs.
+// Replaces gmlib::zip_utils::Unzipper.
 
 class ZipArchive {
     struct Impl;

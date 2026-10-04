@@ -13,7 +13,7 @@ namespace {
 
 // Vanilla's own rule, read out of `ItemRegistryRef::registerBlockItem<BlockItem>`: the item for a block is built
 // as `BlockItem(name, foldedBlockId, blockName)`, with the block's id folded into a short
-// (`id <= 0xFF ? id : 255 - id`). The engine builds its own item for an addon block exactly that way (measured:
+// (`id <= 0xFF ? id : 255 - id`)
 // block id 10002 -> item id -9747); handing `::BlockItem` anything else leaves its internal state disagreeing
 // with `mId`, which is what produced a creative slot nothing could be done with.
 short itemIdOf(::HashedString const& blockName) {
@@ -27,7 +27,6 @@ short itemIdOf(::HashedString const& blockName) {
 
 ICustomBlockItem::ICustomBlockItem(std::string const& identifier, ::HashedString const& blockName)
 : ::BlockItem(identifier, itemIdOf(blockName), blockName) {
-    // Required: without it a client does not accept this item at all (measured - the item simply disappeared from
     // the creative inventory). With it the client treats the item as a `ComponentItem`, so its icon has to come
     // from an icon component, which draws a flat texture: a three dimensional icon is only produced for an item a
     // client links to a block, and that is what the engine's own item for a block gets.

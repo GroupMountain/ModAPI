@@ -337,7 +337,7 @@ void testItemApi() {
     report.section("api.item", [] {
         auto& registry = modapi::ItemRegistry::getInstance();
 
-        // `_modifyItem` used to queue its callback and never run it; now that the registry is open
+        // `_modifyItem` queues its callback; now that the registry is open
         // the callback has to run, and it has to be able to register items.
         bool modifyRan = false;
         (void)registry._modifyItem([&modifyRan](modapi::ItemRegistry&) { modifyRan = true; });
@@ -379,7 +379,7 @@ void testItemApi() {
                 auto            instance = candidate.value.createInstance(1, 0, output, false);
                 auto const      got      = instance.has_value() ? instance->getTypeName() : std::string{"<none>"};
                 if (std::string_view{candidate.name} == "mVersion 0") {
-                    // The legacy-id conversion path: this is the shape that used to be registered.
+                    // The legacy-id conversion path: this is the legacy shape.
                     report.isTrue("give.legacyIdShapeResolvesNothing", got != TestItemName, fmt::format("got '{}'", got));
                 } else {
                     report.isTrue(

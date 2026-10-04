@@ -54,7 +54,6 @@ struct BlockRegistration {
 
 // Published once a level has loaded its block definitions, i.e. after vanilla and every behaviour pack
 // registered theirs. That is the moment a custom block type is registered: early enough that a block item
-// still finds its block (measured: the definitions are read about half a second before vanilla builds its
 // items), that the registry still builds block states (`BlockTypeRegistry::prepareBlocks`) and that the
 // properties clients are told about (`BlockDefinitionGroup::generateServerBlockProperties`, which
 // `StartGamePacket` calls) include the block.
@@ -98,7 +97,6 @@ public:
 // That document is shipped as a behaviour pack through `modapi::addons::RuntimePack`, so the engine parses it
 // itself while a level loads its block definitions - call it while mods load, not from `BlockReadyEvent`.
 // On its own the engine would then also register a block *type* for that name, which collides with the C++
-// type and used to crash the server (measured: the engine's registry keeps the existing entry and drops the
 // new object, after which the two sides disagree); ModAPI suppresses that step for the documents it knows and
 // keeps the parsed definition, so the C++ type is the one the engine uses and clients get the JSON.
 // True for the registration a mod hands over: how to build the block plus what to tell a client about it.
