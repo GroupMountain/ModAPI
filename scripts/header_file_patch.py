@@ -104,7 +104,7 @@ class HeaderPatchManager:
         """修补 HumanoidArmorItem.h """
         with HeaderPatcher(
             os.path.join(levilamina_path, "mc", "world", "item", "HumanoidArmorItem.h"),
-            os.path.join(project_path, "include", "modapi", "item", "types", "mc", "HumanoidArmorItem.h")
+            os.path.join(project_path, "include", "mc", "world", "item", "HumanoidArmorItem.h")
         ) as patcher:
             (patcher
                 .find_and_insert(

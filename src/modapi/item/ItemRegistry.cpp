@@ -2,7 +2,6 @@
 #include "modapi/block/BlockRegistry.h"
 #include "modapi/core/RegistryEvent.h"
 #include "modapi/item/CreativeItemRegistry.h"
-#include "modapi/item/shared_types/NetworkTagBuilder.h"
 #include <atomic>
 #include <cstring>
 #include <ll/api/command/CommandRegistrar.h>
@@ -74,9 +73,8 @@ struct VanillaItemDefinitionSendHook;
 struct ItemRegistry::Impl {
     ll::memory::HookRegistrar<RegisterItemsHook, ClientItemActorFixHook, VanillaItemDefinitionSendHook> mHooks;
     // Bound by the hook below, once the vanilla item pass has run.
-    ::ItemRegistry*                                mRegistry = nullptr;
-    bool                                           mReady    = false;
-    std::unordered_map<std::string, ::CompoundTag> mModifiedVanillaItems;
+    ::ItemRegistry* mRegistry = nullptr;
+    bool            mReady    = false;
     // Every item this API registered. The engine builds no definition for those, so their entry in the packet
     // that carries item definitions to a client has to be filled in from `buildNetworkTag()`.
     std::unordered_set<std::string> mCustomItemNames;
@@ -126,7 +124,10 @@ void ItemRegistry::_bindRegistry(::ItemRegistry& registry) {
     ll::event::EventBus::getInstance().publish(ItemReadyEvent{*this});
 }
 
-ItemRegistry::ProductRef ItemRegistry::_registerItem(std::function<std::unique_ptr<::Item>()>&& func) {
+ItemRegistry::ProductRef ItemRegistry::_registerItem(
+    std::function<std::unique_ptr<::Item>()>&&                     factory,
+    std::function<void(::Item&, ::cereal::ReflectionCtx const&)>&& afterId
+) {
     if (!pImpl->mReady || pImpl->mRegistry == nullptr) {
         core::getLogger().error(
             "ItemRegistry: items can only be registered during the vanilla item pass; "
@@ -136,7 +137,7 @@ ItemRegistry::ProductRef ItemRegistry::_registerItem(std::function<std::unique_p
     }
     try {
         auto& registry   = *pImpl->mRegistry;
-        auto  item       = func().release();
+        auto  item       = factory().release();
         auto  name       = item->mFullName;
         short itemId     = 0;
         bool  registered = false;
@@ -166,6 +167,10 @@ ItemRegistry::ProductRef ItemRegistry::_registerItem(std::function<std::unique_p
             itemId    = registry.mMaxItemID;
             item->mId = itemId;
         }
+        if (afterId) {
+            afterId(*item, *pImpl->mRegistry->mCerealContext);
+        }
+
         // The id has to be handed out here: neither `_preRegisterItem` nor `registerItem` allocates one (both
         // leave the item at id 0), so the engine's own routes cannot be used as they are.
         registry.mItemRegistry->emplace_back(item);
@@ -178,8 +183,7 @@ ItemRegistry::ProductRef ItemRegistry::_registerItem(std::function<std::unique_p
         // Remembered so the item definition packet can be filled in for it (the engine has none).
         pImpl->mCustomItemNames.insert(name->getString());
 
-        // A block item is listed by the engine itself, because it carries a creative category: `ICustomBlockItem`
-        // hands one over and `ItemInitializer` writes it onto the item. Nothing has to be queued for it.
+        // An item with a creative category is listed by the engine itself; nothing has to be queued for it.
         if (!registered) {
             if (sharedItem->mIsHiddenInCommands == ::ItemCommandVisibility::Visible) {
                 registerCommandItemEnum(
@@ -201,20 +205,6 @@ ItemRegistry::ProductRef ItemRegistry::_registerItem(std::function<std::unique_p
     }
 }
 
-
-ItemRegistry& ItemRegistry::_modifyItem(std::function<void(ItemRegistry& registry)>&& func) {
-    if (!pImpl->mReady) {
-        core::getLogger().error(
-            "ItemRegistry: vanilla items can only be modified once the item pass has run; "
-            "use DeferredRegister<ItemRegistry, ...> instead."
-        );
-        return *this;
-    }
-    try {
-        func(*this);
-    } catch (...) {}
-    return *this;
-}
 
 void ItemRegistry::forEachItemInRegistry(std::function<bool(Item& item)>&& func) {
     if (pImpl->mRegistry) {
@@ -261,103 +251,6 @@ LL_TYPE_INSTANCE_HOOK(
     return {};
 }
 
-bool ItemRegistry::setFireResistant(std::string_view itemName, bool value) {
-    if (auto item = getItem(itemName)) {
-        item->mFireResistant = value;
-        return true;
-    }
-    return false;
-}
-
-bool ItemRegistry::addTag(std::string_view itemName, std::string_view tag) {
-    if (auto item = getItem(itemName)) {
-        item->addTag(::ItemTag(std::string{tag}));
-        auto& nbt        = getAndModifyVanillaNetworkTagInfo(itemName);
-        nbt["item_tags"] = ::ListTag();
-        for (auto& itemTag : *item->mTags) {
-            nbt["item_tags"].push_back(itemTag.getString());
-        }
-        return true;
-    }
-    return false;
-}
-
-bool ItemRegistry::setIcon(std::string_view itemName, std::string_view icon) {
-    if (auto item = getItem(itemName)) {
-        auto& nbt                                                       = getAndModifyVanillaNetworkTagInfo(itemName);
-        nbt["item_properties"]["minecraft:icon"]["textures"]["default"] = icon;
-        return true;
-    }
-    return false;
-}
-
-bool ItemRegistry::setDisplayName(std::string_view itemName, std::string_view displayName) {
-    if (auto item = getItem(itemName)) {
-        auto& nbt                              = getAndModifyVanillaNetworkTagInfo(itemName);
-        nbt["minecraft:display_name"]["value"] = displayName;
-        return true;
-    }
-    return false;
-}
-
-bool ItemRegistry::setRepairItem(std::string_view itemName, std::string_view fixItem) {
-    if (auto item = getItem(itemName)) {
-        auto& nbt                                   = getAndModifyVanillaNetworkTagInfo(itemName);
-        nbt["minecraft:repairable"]["repair_items"] = ::ListTag({
-            {{"items", ::ListTag({{{"name", fixItem}}})}, {"repair_amount", "q.max_durability * 0.25"}}
-        });
-        return true;
-    }
-    return false;
-}
-
-::CompoundTag& ItemRegistry::getAndModifyVanillaNetworkTagInfo(std::string_view itemName) {
-    ::CompoundTag nbt;
-    if (pImpl->mModifiedVanillaItems.contains(std::string(itemName))) {
-        return pImpl->mModifiedVanillaItems.at(std::string(itemName));
-    }
-    if (auto item = getItem(itemName)) {
-        if (item->mItemParseVersion != ::ItemVersion::DataDriven) {
-            item->mItemParseVersion = ::ItemVersion::DataDriven;
-            if (auto netTag = item->buildNetworkTag()) {
-                nbt = *netTag;
-            }
-            nbt["item_properties"]["allow_off_hand"]          = isOffhandAllowed(item->mAllowOffhand);
-            nbt["item_properties"]["can_destroy_in_creative"] = item->canDestroyInCreative();
-            nbt["item_properties"]["creative_category"]       = (int)item->mCreativeCategory;
-            nbt["item_properties"]["creative_group"]          = *item->mCreativeGroup;
-            nbt["item_properties"]["damage"]                  = item->getAttackDamage();
-            nbt["item_properties"]["enchantable_slot"]  = buildEnchantSlot(::Enchant::Slot(item->getEnchantSlot()));
-            nbt["item_properties"]["enchantable_value"] = item->getEnchantValue();
-            nbt["item_properties"]["foil"]              = item->mIsGlint;
-            nbt["item_properties"]["hand_equipped"]     = item->isHandEquipped();
-            nbt["item_properties"]["liquid_clipped"]    = item->isLiquidClipItem();
-            nbt["item_properties"]["max_stack_size"]    = (int)item->mMaxStackSize;
-            nbt["item_properties"]["minecraft:icon"]["textures"]["default"] =
-                ll::string_utils::replaceAll(std::string(itemName), "minecraft:", "");
-            nbt["item_properties"]["mining_speed"]    = 1.0f;
-            nbt["item_properties"]["should_despawn"]  = item->mShouldDespawn;
-            nbt["item_properties"]["stacked_by_data"] = item->isStackedByData();
-            nbt["item_properties"]["use_animation"]   = (int)item->mUseAnim;
-            nbt["item_properties"]["use_duration"]    = item->mMaxUseDuration;
-            nbt["item_tags"]                          = ::ListTag();
-            for (auto& itemTag : *item->mTags) {
-                nbt["item_tags"].push_back(itemTag.getString());
-            }
-            nbt["minecraft:display_name"]["value"] =
-                "item." + ll::string_utils::replaceAll(std::string(itemName), "minecraft:", "") + ".name";
-            if (item->mMaxDamage > 0) {
-                nbt["minecraft:durability"] = {
-                    {"damage_chance",  {{"max", 100}, {"min", 100}}},
-                    {"max_durability", (int)item->mMaxDamage       }
-                };
-            }
-        }
-    }
-    pImpl->mModifiedVanillaItems[std::string(itemName)] = std::move(nbt);
-    return pImpl->mModifiedVanillaItems.at(std::string(itemName));
-}
-
 // Where an item's definition for a client is written. The payload constructor produces `mItems`, and every sending
 // path goes through it, so a custom item's definition is filled in here.
 void prepareItemDefinitions(::std::vector<::ItemData>& items) {
@@ -398,15 +291,13 @@ void prepareItemDefinitions(::std::vector<::ItemData>& items) {
         if (impl.mCustomItemNames.contains(*item.mName)) {
             if (auto customItem = ItemRegistry::getInstance().getItem(*item.mName)) {
                 if (auto tag = customItem->buildNetworkTag()) {
-                    merge(published, *tag);
+                    if (tag->mTags.contains("components")) {
+                        merge(published, tag->mTags.at("components").get<::CompoundTag>());
+                    } else {
+                        merge(published, *tag);
+                    }
                 }
             }
-        }
-
-        // A vanilla item a mod modified through the setters.
-        if (auto modified = impl.mModifiedVanillaItems.find(*item.mName);
-            modified != impl.mModifiedVanillaItems.end()) {
-            merge(published, modified->second);
         }
     }
 }

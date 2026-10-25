@@ -94,9 +94,8 @@ struct ICustomRecipe::UnlockingRequirement::Impl {
 /**
  * @brief Builds a smithing recipe for the server.
  *
- * LeviLamina 26.40.0 only declares the SmithingTransformRecipe / SmithingTrimRecipe constructors
- * for the client (LL_PLAT_C), the server binary no longer exports them, so the recipes are put
- * together by hand here. The fields are set by hand: the three
+ * The server SDK only declares the SmithingTransformRecipe / SmithingTrimRecipe constructors for
+ * the client (LL_PLAT_C), so the recipes are put together by hand here. The fields are set by hand: the three
  * ingredients are the template, the base and the addition, the crafting grid is 3x1 and the recipe
  * carries the fixed UUID of its class. The vanilla constructor also stamped the 1.20.10 recipe data
  * version; that is only consulted while loading recipes from disk, so it stays default here.

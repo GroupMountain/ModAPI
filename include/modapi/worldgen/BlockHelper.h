@@ -18,9 +18,8 @@ namespace modapi::inline worldgen {
 // `LevelChunk` itself while that chunk is generated.
 //
 // The handle is a lightweight value: copying or moving it refers to the same region (there is no
-// allocation and nothing that a move can take away), and an empty handle - default constructed, or
-// built from a null region - fails every operation instead of crashing. Nothing here throws; a
-// rejected write is reported through the return value and the log.
+// allocation and nothing that a move can take away), and an empty handle fails every operation.
+// Nothing here throws; a rejected write is reported through the return value and the log.
 class BlockHelper {
 public:
     // A position holds two layers: the block itself, and the block stored *next to* it (water

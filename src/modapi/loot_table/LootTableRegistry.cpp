@@ -1,5 +1,5 @@
 #include "modapi/loot_table/LootTableRegistry.h"
-#include "modapi/core/Gloabl.h"
+#include "modapi/core/Global.h"
 #include "modapi/core/RegistryEvent.h"
 #include "modapi/item/ItemRegistry.h"
 #include <atomic>
@@ -80,9 +80,8 @@ struct LootTableRegistry::Impl {
     bool                   mReady               = false;
 
     // The tables this registry owns, keyed by the directory vanilla looks them up by. The engine's
-    // own cache is left alone: it is the engine's bookkeeping, and writing into it from a mod is what
-    // made the creative item registry crash (see the changelog).
-    std::unordered_map<std::string, std::unique_ptr<::LootTable>> mOwnedTables;
+    // own cache is its bookkeeping and is never written here.
+    std::unordered_map<std::string, std::shared_ptr<::LootTable>> mOwnedTables;
 };
 
 LootTableRegistry::LootTableRegistry() : pImpl(std::make_unique<Impl>()) {}
@@ -111,6 +110,41 @@ void LootTableRegistry::ensureEventRegistered() {
     (void)getInstance();
     static std::atomic_bool registered = false;
     core::ensureRegistryEventRegistered<EventType>(registered);
+}
+
+LootTableRegistrationBuilder& LootTableRegistrationBuilder::jsonFile(std::filesystem::path const& path) {
+    std::ifstream file(path, std::ios::binary);
+    if (!file) return *this;
+    std::ostringstream buffer;
+    buffer << file.rdbuf();
+    mRegistration.mTable = buffer.str();
+    return *this;
+}
+
+LootTableRegistry::ProductRef LootTableRegistry::registerEntry(DataRegistration<LootTableRegistration> registration) {
+    auto const& entry = registration.mEntry;
+    if (entry.mTableDir.empty()) {
+        core::getLogger().error("LootTableRegistry: a loot table needs the directory vanilla looks it up by.");
+        return {};
+    }
+    return std::visit(
+        [&](auto const& value) -> ProductRef {
+            using T = std::decay_t<decltype(value)>;
+            if constexpr (std::is_same_v<T, std::string>) {
+                return registerLootTableFromMemoryJson(entry.mTableDir, value);
+            } else if constexpr (std::is_same_v<T, ::Json::Value>) {
+                return registerLootTableFromJsonValue(entry.mTableDir, value);
+            } else if constexpr (std::is_same_v<T, std::shared_ptr<::LootTable>>) {
+                if (!value) return {};
+                pImpl->mOwnedTables[entry.mTableDir] = value;
+                return value.get();
+            } else {
+                if (!value) return {};
+                return registerLootTable(entry.mTableDir, value->_build());
+            }
+        },
+        entry.mTable
+    );
 }
 
 LootTableRegistry::ProductRef
@@ -204,7 +238,7 @@ LootTableRegistry::registerLootTable(std::string const& tableDir, std::unique_pt
         // `getDir` is what the engine reports for a table; keep it in sync with the key it is found by.
         *table->mDir = tableDir;
         auto& slot   = pImpl->mOwnedTables[tableDir];
-        slot         = std::move(table);
+        slot         = std::shared_ptr<::LootTable>{std::move(table)};
         auto* result = slot.get();
         return result;
     } catch (std::exception const& e) {
@@ -219,43 +253,6 @@ LootTableRegistry::registerLootTable(std::string const& tableDir, std::unique_pt
 LootTableRegistry::ProductRef
 LootTableRegistry::registerLootTable(std::string const& tableDir, LootTableBuilder& builder) {
     return registerLootTable(tableDir, builder._build());
-}
-
-LootTableRegistry::ProductRef
-LootTableRegistry::_registerTable(std::function<std::unique_ptr<ICustomLootTable>()>&& factory) {
-    if (!pImpl->mReady) {
-        core::getLogger().error(
-            "LootTableRegistry: loot tables can only be registered once the engine looked one up; "
-            "use DeferredRegister<LootTableRegistry, ...> to register tables before the server starts."
-        );
-        return {};
-    }
-    try {
-        auto entry = factory();
-        if (!entry) return {};
-        // Same contract as the other entry types: `_init()` does the engine work, and what it produces
-        // is what gets registered (the entry object itself is dropped).
-        auto table = entry->_init();
-        if (!table) {
-            core::getLogger().error("LootTableRegistry: the loot table entry built no table.");
-            return {};
-        }
-        auto const dir = *table->mDir;
-        if (dir.empty()) {
-            core::getLogger().error(
-                "LootTableRegistry: the loot table entry left no directory on its table; use "
-                "LootTableRegistry::buildTable or registerLootTable to set one."
-            );
-            return {};
-        }
-        return registerLootTable(dir, std::move(table));
-    } catch (std::exception const& e) {
-        core::getLogger().error("LootTableRegistry: could not build a loot table entry: {}", e.what());
-        return {};
-    } catch (...) {
-        core::getLogger().error("LootTableRegistry: could not build a loot table entry.");
-        return {};
-    }
 }
 
 bool LootTableRegistry::unregisterLootTable(std::string const& tableDir) {

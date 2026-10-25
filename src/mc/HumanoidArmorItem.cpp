@@ -1,4 +1,4 @@
-#include "modapi/item/types/mc/HumanoidArmorItem.h"
+#include "mc/world/item/HumanoidArmorItem.h"
 #include <ll/api/memory/Memory.h>
 #include <magic_enum.hpp>
 #include <mc/deps/puv/puv_load_data/LoadResultWithTiming.h>

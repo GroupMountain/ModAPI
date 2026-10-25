@@ -558,3 +558,7 @@ fabric.properties
 /.idea/
 /.vscode/
 /bin/
+
+# local tool output
+.clang-tidy-results.txt
+.ida-mcp/

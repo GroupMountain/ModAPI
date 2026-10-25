@@ -97,72 +97,24 @@ void GameRuleRegistry::_bindRules(::GameRules& rules) {
     ll::event::EventBus::getInstance().publish(GameRuleReadyEvent{*this});
 }
 
-GameRuleRegistry::ProductRef GameRuleRegistry::registerGameRuleBool(
-    std::string const& identifier,
-    bool               defaultValue,
-    bool               requiresCheats,
-    bool               shouleSaveToDisk,
-    bool               allowUseInCommand,
-    bool               allowUseInScripting,
-    bool               canBeModifiedByPlayer
-) {
+GameRuleRegistry::ProductRef GameRuleRegistry::_appendRegistration(GameRuleRegistration const& registration) {
     try {
-        ::GameRule rule(identifier, canBeModifiedByPlayer);
-        rule.mShouldSave          = shouleSaveToDisk;
-        rule.mType                = ::GameRule::Type::Bool;
-        rule.mValue               = defaultValue;
-        rule.mAllowUseInCommand   = allowUseInCommand;
-        rule.mAllowUseInScripting = allowUseInScripting;
+        ::GameRule rule(registration.mIdentifier, registration.mCanBeModifiedByPlayer);
+        rule.mShouldSave          = registration.mShouldSaveToDisk;
+        rule.mAllowUseInCommand   = registration.mAllowUseInCommand;
+        rule.mAllowUseInScripting = registration.mAllowUseInScripting;
         rule.mIsDefaultSet        = true;
-        rule.mRequiresCheats      = requiresCheats;
-        return _appendRule(std::move(rule));
-    } catch (...) {
-        return {};
-    }
-}
-
-GameRuleRegistry::ProductRef GameRuleRegistry::registerGameRuleInt(
-    std::string const& identifier,
-    int                defaultValue,
-    bool               requiresCheats,
-    bool               shouleSaveToDisk,
-    bool               allowUseInCommand,
-    bool               allowUseInScripting,
-    bool               canBeModifiedByPlayer
-) {
-    try {
-        ::GameRule rule(identifier, canBeModifiedByPlayer);
-        rule.mShouldSave          = shouleSaveToDisk;
-        rule.mType                = ::GameRule::Type::Int;
-        rule.mValue               = defaultValue;
-        rule.mAllowUseInCommand   = allowUseInCommand;
-        rule.mAllowUseInScripting = allowUseInScripting;
-        rule.mIsDefaultSet        = true;
-        rule.mRequiresCheats      = requiresCheats;
-        return _appendRule(std::move(rule));
-    } catch (...) {
-        return {};
-    }
-}
-
-GameRuleRegistry::ProductRef GameRuleRegistry::registerGameRuleFloat(
-    std::string const& identifier,
-    float              defaultValue,
-    bool               requiresCheats,
-    bool               shouleSaveToDisk,
-    bool               allowUseInCommand,
-    bool               allowUseInScripting,
-    bool               canBeModifiedByPlayer
-) {
-    try {
-        ::GameRule rule(identifier, canBeModifiedByPlayer);
-        rule.mShouldSave          = shouleSaveToDisk;
-        rule.mType                = ::GameRule::Type::Float;
-        rule.mValue               = defaultValue;
-        rule.mAllowUseInCommand   = allowUseInCommand;
-        rule.mAllowUseInScripting = allowUseInScripting;
-        rule.mIsDefaultSet        = true;
-        rule.mRequiresCheats      = requiresCheats;
+        rule.mRequiresCheats      = registration.mRequiresCheats;
+        if (std::holds_alternative<bool>(registration.mDefaultValue)) {
+            rule.mType  = ::GameRule::Type::Bool;
+            rule.mValue = std::get<bool>(registration.mDefaultValue);
+        } else if (std::holds_alternative<int>(registration.mDefaultValue)) {
+            rule.mType  = ::GameRule::Type::Int;
+            rule.mValue = std::get<int>(registration.mDefaultValue);
+        } else {
+            rule.mType  = ::GameRule::Type::Float;
+            rule.mValue = std::get<float>(registration.mDefaultValue);
+        }
         return _appendRule(std::move(rule));
     } catch (...) {
         return {};

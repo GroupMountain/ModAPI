@@ -1,31 +1,65 @@
 #pragma once
 #include "modapi/Macros.h"
+#include "modapi/Registration.h"
 #include "modapi/Registry.h"
-#include "modapi/loot_table/base/ICustomLootTable.h"
 #include <concepts>
 #include <filesystem>
 #include <functional>
 #include <ll/api/event/Event.h>
 #include <mc/deps/core/utility/optional_ref.h>
+#include <mc/deps/json/Value.h>
 #include <memory>
 #include <string>
 #include <string_view>
 #include <type_traits>
 #include <utility>
+#include <variant>
 
 class LootPoolEntry;
 class LootTable;
 class LootTables;
 class ResourcePackManager;
 
-namespace Json {
-class Value;
-}
-
 namespace modapi::inline loot_table {
 
 class LootTableRegistry;
 class LootTableBuilder;
+
+struct LootTableRegistration {
+    std::string                                                                                               mTableDir;
+    std::variant<std::string, ::Json::Value, std::shared_ptr<::LootTable>, std::shared_ptr<LootTableBuilder>> mTable;
+};
+
+class LootTableRegistrationBuilder {
+    LootTableRegistration mRegistration;
+
+public:
+    explicit LootTableRegistrationBuilder(std::string tableDir) { mRegistration.mTableDir = std::move(tableDir); }
+
+    LootTableRegistrationBuilder& json(std::string rawJson) {
+        mRegistration.mTable = std::move(rawJson);
+        return *this;
+    }
+
+    LootTableRegistrationBuilder& jsonFile(std::filesystem::path const& path);
+
+    LootTableRegistrationBuilder& jsonValue(::Json::Value value) {
+        mRegistration.mTable = std::move(value);
+        return *this;
+    }
+
+    LootTableRegistrationBuilder& table(std::shared_ptr<::LootTable> value) {
+        mRegistration.mTable = std::move(value);
+        return *this;
+    }
+
+    LootTableRegistrationBuilder& pools(std::shared_ptr<LootTableBuilder> value) {
+        mRegistration.mTable = std::move(value);
+        return *this;
+    }
+
+    [[nodiscard]] DataRegistration<LootTableRegistration> build() const { return {mRegistration}; }
+};
 
 // Published the first time vanilla asks a `LootTables` instance for a table by name, which is the
 // moment registered tables become reachable. Loot tables are not added to a container while a pass
@@ -47,13 +81,12 @@ public:
 // registered is served instead of (or rather: before) the resource pack one, and every other engine
 // path - `LootTable::fill`, `LootResolver`, `LootTableReference` entries - sees it too.
 //
-// Three ways to hand a table over, in decreasing order of convenience for the mod:
+// The data builder accepts JSON text, an engine DOM, a `LootTable`, or `LootTableBuilder` pools:
 //
-//   * `registerLootTableFromMemoryJson` / `registerLootTableFromJsonFile` - JSON text, parsed by the
-//     engine's own `LootTable::deserialize`, so every entry, condition and function works;
-//   * `registerLootTableFromJsonValue` - the same, with the document assembled as an engine DOM;
-//   * `LootTableBuilder` / `registerLootTable` - built in code out of the engine's own loot types
-//     (what the server build exposes; conditions and functions stay JSON-only for the engine).
+//   LootTableRegistry::builder("loot_tables/mymod/table.json").json(rawJson).build();
+//   LootTableRegistry::builder("loot_tables/mymod/table.json").jsonValue(dom).build();
+//   LootTableRegistry::builder("loot_tables/mymod/table.json").table(table).build();
+//   LootTableRegistry::builder("loot_tables/mymod/table.json").pools(builder).build();
 //
 // A registration only works once the engine has looked a table up (`isReady()`): the engine's
 // `LootTable::deserialize` resolves items as it parses, so it cannot run while the server is still
@@ -69,6 +102,8 @@ public:
     using EventType  = LootTableReadyEvent;
     using Product    = ::LootTable;
     using ProductRef = optional_ref<::LootTable>;
+    using Property   = LootTableRegistration;
+    using DataEntry  = LootTableRegistration;
 
 public:
     LootTableRegistry();
@@ -86,17 +121,19 @@ public:
     // `DeferredRegister<LootTableRegistry, ...>`.
     MOD_API static void ensureEventRegistered();
 
-    // Entry types are ICustomLootTable implementations.
     template <class Entry>
-    static constexpr bool isEntry = std::derived_from<Entry, ICustomLootTable>;
+    static constexpr bool isEntry = std::same_as<Entry, LootTableRegistration>;
 
-    // Builds `Entry` and registers the table it describes.
-    template <std::derived_from<ICustomLootTable> Entry, class... Args>
-    ProductRef registerEntry(Args&&... args) {
-        return _registerTable([... args = std::forward<Args>(args)]() -> std::unique_ptr<ICustomLootTable> {
-            return std::make_unique<Entry>(args...);
-        });
+    static LootTableRegistrationBuilder builder(std::string tableDir) {
+        return LootTableRegistrationBuilder{std::move(tableDir)};
     }
+
+    static LootTableRegistration makeDataEntry(std::string identifier, LootTableRegistration registration) {
+        registration.mTableDir = std::move(identifier);
+        return registration;
+    }
+
+    MOD_NDAPI ProductRef registerEntry(DataRegistration<LootTableRegistration> registration);
 
     // `tableDir` is the name vanilla uses, e.g. "loot_tables/chests/simple_dungeon.json";
     // `formatVersion` is the JSON format the document is written against.
@@ -107,8 +144,7 @@ public:
     MOD_NDAPI ProductRef registerLootTableFromJsonFile(std::filesystem::path const& jsonPath);
 
     // Builds a table with the engine's own `LootTable::deserialize` and stamps `tableDir` into it, so
-    // `getDir` reports the directory vanilla looks the table up by. This is what an `ICustomLootTable`'s
-    // `_init()` uses; it needs the engine to be up (see the class comment).
+    // `getDir` reports the directory vanilla looks the table up by. It needs the engine to be up.
     MOD_NDAPI static std::unique_ptr<::LootTable> buildTable(std::string const& tableDir, std::string const& rawJson);
 
     // The engine's own DOM, for callers that assemble the document in code instead of parsing text.
@@ -120,9 +156,6 @@ public:
 
     // A table assembled by the builder, registered in one step (which consumes the builder).
     MOD_NDAPI ProductRef registerLootTable(std::string const& tableDir, LootTableBuilder& builder);
-
-    // Builds the entry and registers the table it describes.
-    MOD_NDAPI ProductRef _registerTable(std::function<std::unique_ptr<ICustomLootTable>()>&& factory);
 
     // Drops a table this registry owns, and the copy the engine cached for it.
     MOD_API bool unregisterLootTable(std::string const& tableDir);

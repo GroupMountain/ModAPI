@@ -1,5 +1,6 @@
 #pragma once
 #include "modapi/Macros.h"
+#include "modapi/Registration.h"
 #include "modapi/Registry.h"
 #include <ll/api/event/Event.h>
 #include <mc/deps/core/utility/optional_ref.h>
@@ -28,21 +29,41 @@ public:
     MOD_NDAPI CreativeItemRegistry& registry() const;
 };
 
+struct CreativeGroupRegistration {
+    std::string                         mGroup;
+    ::ItemInstance                      mIcon;
+    ::SharedTypes::CreativeItemCategory mCategory = ::SharedTypes::CreativeItemCategory::Items;
+};
+
+class CreativeGroupRegistrationBuilder {
+    CreativeGroupRegistration mRegistration;
+
+public:
+    explicit CreativeGroupRegistrationBuilder(std::string group) { mRegistration.mGroup = std::move(group); }
+
+    CreativeGroupRegistrationBuilder& category(::SharedTypes::CreativeItemCategory value) {
+        mRegistration.mCategory = value;
+        return *this;
+    }
+
+    CreativeGroupRegistrationBuilder& icon(::ItemInstance value) {
+        mRegistration.mIcon = std::move(value);
+        return *this;
+    }
+
+    [[nodiscard]] DataRegistration<CreativeGroupRegistration> build() const { return {mRegistration}; }
+};
+
 class CreativeItemRegistry {
     struct Impl;
     std::unique_ptr<Impl> pImpl;
 
 public:
-    struct CreativeItem {
-        ::ItemInstance&                     mItem;
-        ::SharedTypes::CreativeItemCategory mCategory;
-        std::string                         mGroup;
-    };
-
-public:
     using EventType  = CreativeItemReadyEvent;
     using Product    = ::CreativeItemEntry;
     using ProductRef = optional_ref<::CreativeItemEntry>;
+    using Property   = CreativeGroupRegistration;
+    using DataEntry  = CreativeGroupRegistration;
 
 public:
     CreativeItemRegistry();
@@ -58,6 +79,27 @@ public:
     // Registers the ready event emitter (idempotent).
     MOD_API static void ensureEventRegistered();
 
+    template <class Entry>
+    static constexpr bool isEntry = std::same_as<Entry, CreativeGroupRegistration>;
+
+    static CreativeGroupRegistrationBuilder builder(std::string group) {
+        return CreativeGroupRegistrationBuilder{std::move(group)};
+    }
+
+    static CreativeGroupRegistration makeDataEntry(std::string group, CreativeGroupRegistration registration) {
+        registration.mGroup = std::move(group);
+        return registration;
+    }
+
+    ProductRef registerEntry(DataRegistration<CreativeGroupRegistration> registration) {
+        registerCreativeGroup(
+            registration.mEntry.mGroup,
+            std::move(registration.mEntry.mIcon),
+            registration.mEntry.mCategory
+        );
+        return {};
+    }
+
 public:
     MOD_API uint32_t registerCreativeGroup(
         std::string_view                    groupName,
@@ -65,26 +107,8 @@ public:
         ::SharedTypes::CreativeItemCategory category = ::SharedTypes::CreativeItemCategory::Items
     );
 
-    MOD_NDAPI ProductRef registerCreativeItem(
-        ::ItemInstance&&                    item,
-        ::SharedTypes::CreativeItemCategory category  = ::SharedTypes::CreativeItemCategory::Items,
-        std::string_view                    itemGroup = {}
-    );
-
-    MOD_NDAPI std::vector<CreativeItem> getCreativeItem(std::string_view itemType);
-
-    MOD_API bool unregisterCreativeItem(CreativeItem const& item);
-
     // Binds the instance vanilla is filling and publishes `CreativeItemReadyEvent` for it.
     MOD_API void _bindRegistry(::CreativeItemRegistry& registry);
-
-private:
-    // Registers into the currently bound registry.
-    MOD_NDAPI ProductRef _appendCreativeItem(
-        ::ItemInstance&&                    item,
-        ::SharedTypes::CreativeItemCategory category,
-        std::string_view                    itemGroup
-    );
 };
 
 } // namespace modapi::inline item

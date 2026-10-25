@@ -2,7 +2,7 @@
 #include <mc/world/item/NetworkItemInstanceDescriptor.h>
 #include <mc/world/item/crafting/Recipe.h>
 
-// Definitions for symbols not exported in LeviLamina 26.20.0 server
+// Definitions for symbols not exported by the server SDK.
 
 Recipe::Results::Results() : mResultsAreLoaded(false) {}
 

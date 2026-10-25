@@ -91,7 +91,7 @@ class StoneSurfaceBuilder final : public modapi::worldgen::ICustomSurfaceBuilder
 public:
     void buildSurfaceAt(
         ::ISurfaceBuilder::GlobalParameters const&,
-        ::ISurfaceBuilder::SurfaceBuilderParameters const& surfaceBuilderParams,
+        ::ISurfaceBuilder::SurfaceBuilderParameters const&,
         ::ISurfaceBuilder::PerColumnParameters const&      columnParams
     ) const override {
         auto const n = mCalls.fetch_add(1, std::memory_order_relaxed);
@@ -300,31 +300,30 @@ void installClientPack() {
 // Both have to be alive before their registry publishes its ready event, which happens while the
 // level configures its biomes - so they are static, as they would be in a mod.
 static modapi::DeferredRegister<modapi::worldgen::SurfaceBuilderRegistry, StoneSurfaceBuilder> gStoneSurface{
-    modapi::worldgen::SurfaceBuilderRegistration<>{
-        .mIdentifier = "mymod:stone",
-        .mArguments  = {},
-    }
+    modapi::worldgen::SurfaceBuilderRegistry::builder<StoneSurfaceBuilder>("mymod:stone").build()
 };
 
 static modapi::DeferredRegister<modapi::worldgen::BiomeRegistry, modapi::worldgen::BiomeRegistration> gCppBiome{
-    modapi::worldgen::BiomeRegistration{
-        .mIdentifier = "mymod:cpp_biome",
-        .mProperty =
-            {
-                .mTemplate = "minecraft:plains",
-                .mSurface = std::string{"mymod:stone"},
-            },
-    }
+    modapi::worldgen::BiomeRegistry::builder("mymod:cpp_biome")
+        .property(
+            modapi::worldgen::BiomeProperty{
+                .mId         = std::nullopt,
+                .mTemplate   = "minecraft:plains",
+                .mComponents = {},
+                .mSurface    = std::string{"mymod:stone"},
+            }
+        )
+        .build()
 };
 
 // A biome that takes over a small vanilla biome instead of claiming a cell of its own: a full-range
 // cell out-specifies every vanilla cell and would shadow the whole world (see the README), which
 // would leave nothing else to locate.
 static modapi::DeferredRegister<modapi::worldgen::BiomeRegistry, modapi::worldgen::BiomeRegistration> gClimateBiome{
-    modapi::worldgen::BiomeRegistration{
-        .mIdentifier = "mymod:climate_biome",
-        .mProperty =
-            {
+    modapi::worldgen::BiomeRegistry::builder("mymod:climate_biome")
+        .property(
+            modapi::worldgen::BiomeProperty{
+                .mId       = std::nullopt,
                 .mTemplate = "minecraft:desert",
                 .mClimate = modapi::worldgen::BiomeProperty::Replacement{
                     .mTargetBiomes = {"minecraft:savanna"},
@@ -337,8 +336,9 @@ static modapi::DeferredRegister<modapi::worldgen::BiomeRegistry, modapi::worldge
                         },
                     },
                 .mSurface = std::string{"mymod:stone"},
-            },
-    }
+            }
+        )
+        .build()
 };
 
 namespace {
@@ -484,14 +484,16 @@ void registerBiomeTestCommand() { registerTestFunction("biome", [] { return runB
 // A second takeover biome, registered after the own-cell one: it tells whether the command's biome
 // enum only takes the biomes of the first registration pass.
 static modapi::DeferredRegister<modapi::worldgen::BiomeRegistry, modapi::worldgen::BiomeRegistration> gCppBiome2{
-    modapi::worldgen::BiomeRegistration{
-        .mIdentifier = "mymod:cpp_biome2",
-        .mProperty =
-            {
-                .mTemplate = "minecraft:forest",
-                .mSurface  = std::string{"mymod:stone"},
-            },
-    }
+    modapi::worldgen::BiomeRegistry::builder("mymod:cpp_biome2")
+        .property(
+            modapi::worldgen::BiomeProperty{
+                .mId         = std::nullopt,
+                .mTemplate   = "minecraft:forest",
+                .mComponents = {},
+                .mSurface    = std::string{"mymod:stone"},
+            }
+        )
+        .build()
 };
 
 REGISTER_ON_LOAD_TEST(BiomeClientPack, installClientPack)

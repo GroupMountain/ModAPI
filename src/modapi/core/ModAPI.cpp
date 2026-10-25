@@ -2,7 +2,7 @@
 #include "modapi/Version.h"
 #include "modapi/block/BlockRegistry.h"
 #include "modapi/core/FileUtils.h"
-#include "modapi/core/Gloabl.h"
+#include "modapi/core/Global.h"
 #include "modapi/core/RandomColorLogFormatter.h"
 #include "modapi/gamerule/GameRuleRegistry.h"
 #include "modapi/item/CreativeItemRegistry.h"
@@ -10,6 +10,8 @@
 #include "modapi/loot_table/LootTableRegistry.h"
 #include "modapi/recipe/RecipeRegistry.h"
 #include "modapi/worldgen/FeatureRegistry.h"
+#include "modapi/worldgen/FeatureRuleRegistry.h"
+#include "modapi/worldgen/SurfaceBuilderRegistry.h"
 #include <ll/api/event/EventBus.h>
 #include <ll/api/io/Formatter.h>
 #include <ll/api/mod/RegisterHelper.h>
@@ -62,6 +64,8 @@ bool ModAPI::load() {
     modapi::recipe::RecipeRegistry::ensureEventRegistered();
     modapi::gamerule::GameRuleRegistry::ensureEventRegistered();
     modapi::worldgen::FeatureRegistry::ensureEventRegistered();
+    modapi::worldgen::FeatureRuleRegistry::ensureEventRegistered();
+    modapi::worldgen::SurfaceBuilderRegistry::ensureEventRegistered();
     modapi::loot_table::LootTableRegistry::ensureEventRegistered();
     modapi::block::BlockRegistry::ensureEventRegistered();
     return true;

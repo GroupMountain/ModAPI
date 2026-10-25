@@ -1,6 +1,6 @@
 #include <mc/world/level/storage/loot/RandomValueBounds.h>
 
-// Definitions for symbols not exported in LeviLamina 26.51.x server (see src/mc/ItemInstance.cpp).
+// Definitions for symbols not exported by the server SDK.
 //
 // `LootPool` stores its `rolls` and `bonus_rolls` as a `RandomValueBounds`, and the generated header
 // only declares its constructors and copy assignment - filling a loot pool in code therefore needs

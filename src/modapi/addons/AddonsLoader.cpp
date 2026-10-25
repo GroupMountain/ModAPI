@@ -1,6 +1,6 @@
 #include "modapi/addons/AddonsLoader.h"
 #include "modapi/addons/ZipArchive.h"
-#include "modapi/core/Gloabl.h"
+#include "modapi/core/Global.h"
 #include <ll/api/memory/Hook.h>
 #include <ll/api/service/Bedrock.h>
 #include <ll/api/thread/ThreadPoolExecutor.h>
@@ -82,14 +82,6 @@ void AddonsLoader::addCustomPackPath(std::filesystem::path const& path) {
             zip->extractAll(path, true);
         });
     }
-}
-
-void AddonsLoader::setCustomPackPath(ResourcePackRepository& repo, std::filesystem::path const& path, PackType type) {
-    const_cast<CompositePackSource&>(*repo.mSources->mWorldPackSource)
-        .mPackSources->push_back(
-            &repo.getPackSourceFactory().createDirectoryPackSource(Core::Path(path), type, PackOrigin::Test, false)
-        );
-    repo.refreshPacks();
 }
 
 LL_TYPE_INSTANCE_HOOK(

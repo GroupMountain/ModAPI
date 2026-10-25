@@ -1,214 +1,310 @@
 #pragma once
 #include "modapi/Macros.h"
-#include "modapi/item/types/DamageChance.h"
-#include "modapi/item/types/ItemIcon.h"
-#include "modapi/item/types/RepairItems.h"
+#include <map>
+#include <mc/deps/core/string/HashedString.h>
 #include <mc/deps/nbt/CompoundTag.h>
-#include <mc/deps/shared_types/legacy/item/UseAnimation.h>
-#include <mc/deps/shared_types/v1_26_30/item/ItemDocument.h>
-#include <mc/world/actor/DefinitionEvent.h>
+#include <mc/deps/shared_types/beta/item/UseModifiersItemComponent.h>
+#include <mc/deps/shared_types/v1_20_50/item/CooldownItemComponent.h>
+#include <mc/deps/shared_types/v1_20_50/item/FoodItemComponent.h>
+#include <mc/deps/shared_types/v1_21_110/item/ItemCategory.h>
+#include <mc/deps/shared_types/v1_21_110/item/ItemDescription.h>
+#include <mc/deps/shared_types/v1_21_110/item/ItemMenuCategory.h>
+#include <mc/deps/shared_types/v1_21_80/item/IconItemComponent.h>
+#include <mc/deps/shared_types/v1_21_90/item/WearableItemComponent.h>
+#include <mc/deps/shared_types/v1_26_0/item/PlanterItemComponent.h>
+#include <mc/deps/shared_types/v1_26_30/item/UseModifiersItemComponent.h>
 #include <mc/world/item/Item.h>
-#include <mc/world/item/ItemComprehensiveLoadResult.h>
-#include <mc/world/item/ItemIconInfo.h>
-#include <mc/world/item/ItemStackBase.h>
-#include <mc/world/item/Rarity.h>
-#include <mc/world/item/components/LegacyEventItemComponentData.h>
-#include <mc/world/item/enchanting/Enchant.h>
-#include <mc/world/item/enchanting/EnchantUtils.h>
-#include <mc/world/level/block/Block.h>
-
+#include <mc/world/item/components/AllowOffHandItemComponent.h>
+#include <mc/world/item/components/CanDestroyInCreativeItemComponent.h>
+#include <mc/world/item/components/ComponentItem.h>
+#include <mc/world/item/components/CompostableItemComponent.h>
+#include <mc/world/item/components/CooldownItemComponent.h>
+#include <mc/world/item/components/DamageItemComponent.h>
+#include <mc/world/item/components/DisplayNameItemComponent.h>
+#include <mc/world/item/components/DurabilityItemComponent.h>
+#include <mc/world/item/components/EnchantableItemComponent.h>
+#include <mc/world/item/components/FoodItemComponent.h>
+#include <mc/world/item/components/FuelItemComponent.h>
+#include <mc/world/item/components/GlintItemComponent.h>
+#include <mc/world/item/components/HandEquippedItemComponent.h>
+#include <mc/world/item/components/IconItemComponent.h>
+#include <mc/world/item/components/ItemComponent.h>
+#include <mc/world/item/components/MaxStackSizeItemComponent.h>
+#include <mc/world/item/components/PlanterItemComponent.h>
+#include <mc/world/item/components/RarityItemComponent.h>
+#include <mc/world/item/components/TagsItemComponent.h>
+#include <mc/world/item/components/UseModifiersItemComponent.h>
+#include <mc/world/item/components/WearableItemComponent.h>
+#include <mc/world/level/Level.h>
+#include <mc/world/level/block/registry/BlockTypeRegistry.h>
+#include <memory>
+#include <optional>
+#include <string>
+#include <utility>
+#include <vector>
 
 namespace modapi::inline item {
 
-// The answers a mod gives an item, with no engine base of its own: every hook below is the default a mod gets when it
-// overrides nothing, and each one is defined here, in the class, rather than in a `.cpp` - a mod compiles its own
-// definitions, so nothing has to be exported for a mod's subclass to link.
-//
-// This is deliberately *not* the engine class. `ICustomItem<T>` is what brings in an engine base, and it can only be
-// written on top of this one: a template member's definition has to be visible in every translation unit that
-// instantiates it, and the mangled name of `ICustomItem<T>::someHook` changes with `T`, so nothing here can live in a
-// `.cpp` either way. Keeping the hooks in a non-template base means the two helpers that do the heavy work
-// (`initCustomItem`, `buildClientComponents`) are ordinary exported functions rather than one copy per `T`.
-// The two helpers a template member below calls. They live in `modapi/item/shared_types/...` (which include this
-// header, so this is a forward declaration on purpose), and their definitions must be visible in every translation
-// unit that instantiates `ICustomItem<T>` - that is what makes them reusable for any `T` at all.
-template <class ItemT>
-void initCustomItem(ItemT& item);
+MOD_API ::SharedTypes::v1_21_110::ItemDescription* createItemDescription();
+MOD_API                                            std::shared_ptr<::WearableItemComponent>
+makeWearableItemComponent(::SharedTypes::Legacy::EquipmentSlot slot, int protection);
+MOD_API std::shared_ptr<::PlanterItemComponent>
+makePlanterItemComponent(std::string block, bool canUseAsIcon, bool replaceBlockItem);
 
-template <class ItemT>
-std::unique_ptr<CompoundTag> buildClientComponents(ItemT const& item);
-
-class ICustomItemBase {
+template <class T>
+class ICustomItem : public T {
 public:
-    virtual ~ICustomItemBase() = default;
+    using CustomItemBase = T;
+    using ItemComponents = std::map<std::string, std::shared_ptr<::ItemComponent>>;
+    using T::canDestroyInCreative;
 
-    // What a client draws in the inventory. A mod has to answer this one: an item without an icon, and without a
-    // block to draw instead, shows up blank.
-    virtual ItemIcon getIcon() const = 0;
+private:
+    std::unique_ptr<::ComponentItem>                           mComponentItem;
+    ItemComponents                                             mComponents;
+    std::unique_ptr<::SharedTypes::v1_21_110::ItemDescription> mDescription;
 
-    virtual uint8_t getItemMaxStackSize() const { return 64; }
-
-    virtual std::vector<std::string> getItemTags() const { return {}; }
-
-    virtual bool allowOffhand() const { return false; }
-
-    virtual std::string getHoverTextColorFormat() const { return {}; }
-
-    virtual bool shouldDespawn() const { return true; }
-
-    virtual ::Enchant::Slot getEnchantmentSlot() const { return ::Enchant::Slot::None; }
-
-    virtual bool isFoil() const { return false; }
-
-    virtual uint8_t getCompostChance() const { return 0; }
-
-    virtual DamageChance getItemDamageChance() const { return DamageChance(100, 100); }
-
-    virtual short getItemDurability() const { return 0; }
-
-    virtual std::vector<RepairItems> getRepairItems() const { return {}; }
-
-    virtual ::SharedTypes::Legacy::UseAnimation getUseAnimation() const {
-        return ::SharedTypes::Legacy::UseAnimation::None;
-    }
-
-    virtual bool requiresWorldBuilder() const { return false; }
-
-    virtual bool isExplodable() const { return true; }
-
-    virtual bool isFireResistant() const { return false; }
-
-    virtual bool shouldIgnoresPermissions() const { return false; }
-
-    virtual bool shouldAnimatesInToolbar() const { return false; }
-
-    virtual std::string getDisplayName() const { return {}; }
-
-    virtual int getUseDuration() const { return 0; }
-
-    virtual ::Interactions::Mining::MineBlockItemEffectType getMineBlockItemEffectType() const {
-        return ::Interactions::Mining::MineBlockItemEffectType::Default;
-    }
-
-    virtual ::SharedTypes::CreativeItemCategory getCreativeCategory() const {
-        return ::SharedTypes::CreativeItemCategory::Items;
-    }
-
-    virtual ::std::string getCreativeGroup() const { return {}; }
-
-    virtual bool isDiggerItem() const { return false; }
-
-    virtual float getMiningSpeed() const { return 1.0f; }
-
-    virtual bool isFuel() const { return false; }
-
-    virtual float getFurnaceBurnInterval() const { return 0; }
-
-    virtual ::ItemCommandVisibility shouldHiddenInCommands() const { return ::ItemCommandVisibility::Visible; }
-
-    virtual bool isSmithingTransformable() const { return false; }
-
-    virtual bool isSmithingTransformMaterial() const { return false; }
-
-    virtual bool isSmithingTemplate() const { return false; }
-
-    virtual int getFrameCount() const { return 1; }
-
-    virtual std::string getInteractButtonText() const { return "action.interact.use"; }
-};
-
-// A mod's item: the engine class it stands for, plus the hooks above. `class MyItem : public ICustomItem<::Item>` is
-// the ordinary case; an engine subclass (`::TridentItem`, `::BlockItem`, ...) is just a different `T`.
-//
-// Only the members that override an engine virtual are here, because only they have to be written against `T` - and
-// every one of them is a one line call into a helper that lives in a `.cpp` (or into `T`'s own implementation), so
-// this class stays readable while the work stays in one place.
-template <typename T>
-class ICustomItem : public T, public ICustomItemBase {
 public:
-    explicit ICustomItem(std::string const& identifier) : T(identifier, 0) {
-        // Required, not decoration: it makes the engine treat the item as a data driven one, which is what gives it
-        // the definition machinery a client needs.
-        this->mItemParseVersion = ItemVersion::DataDriven;
+    explicit ICustomItem(std::string const& identifier) : T(identifier, 0), mDescription(createItemDescription()) {
+        this->mItemParseVersion = ::ItemVersion::DataDriven;
     }
 
-    // For an engine base whose constructor takes more than the identifier (a block item needs its block, for
-    // instance). The arguments are whatever `T` asks for, the identifier included.
     template <class... Args>
-    explicit ICustomItem(Args&&... args) : T(std::forward<Args>(args)...) {
-        this->mItemParseVersion = ItemVersion::DataDriven;
+    explicit ICustomItem(Args&&... args) : T(std::forward<Args>(args)...),
+                                           mDescription(createItemDescription()) {
+        this->mItemParseVersion = ::ItemVersion::DataDriven;
     }
 
     ~ICustomItem() override = default;
 
-    // Not a virtual: the registry calls it on the type it just built, so a mod's own `_init` is reached by name
-    // rather than through a vtable slot - which is what lets it stay out of the engine-facing signature set.
-    void _init() { initCustomItem(*this); }
+    [[nodiscard]] ItemComponents const& components() const noexcept { return mComponents; }
 
-    std::unique_ptr<CompoundTag> buildNetworkTag() const override { return buildClientComponents(*this); }
-
-    float getDestroySpeed(::ItemStackBase const& item, ::Block const& block) const override {
-        if (isDiggerItem() && !item.isNull() && this->canDestroySpecial(block)) {
-            auto level = ::EnchantUtils::getEnchantLevel(::Enchant::Type::Efficiency, item);
-            return getMiningSpeed() + (float)(level * level) + 1.0f;
-        }
-        return 1.0f;
+    ICustomItem& components(ItemComponents value) {
+        mComponents = std::move(value);
+        return *this;
     }
 
-    bool isValidRepairItem(
-        ::ItemStackBase const&,
-        ::ItemStackBase const& repairItem,
-        ::BaseGameVersion const&
-    ) const override {
-        for (auto& items : getRepairItems()) {
-            for (auto& item : items.mItems) {
-                if (item == repairItem.getTypeName()) {
-                    return true;
-                }
+    ICustomItem& addComponent(std::string name, std::shared_ptr<::ItemComponent> component) {
+        mComponents[std::move(name)] = std::move(component);
+        return *this;
+    }
+
+    [[nodiscard]] ::SharedTypes::v1_21_110::ItemDescription const& description() const noexcept {
+        return *mDescription;
+    }
+
+    ICustomItem& description(::SharedTypes::v1_21_110::ItemDescription const& value) {
+        *mDescription->mIdentifier = *value.mIdentifier;
+        *mDescription->mCategory   = *value.mCategory;
+        return *this;
+    }
+
+    [[nodiscard]] ::SharedTypes::v1_21_110::ItemMenuCategory const& menuCategory() const noexcept {
+        return *mDescription->mCategory;
+    }
+
+    ICustomItem& menuCategory(::SharedTypes::v1_21_110::ItemMenuCategory value) {
+        *mDescription->mCategory = std::move(value);
+        return *this;
+    }
+
+    [[nodiscard]] ::SharedTypes::v1_21_110::ItemCategory::CreativeItemCategory creativeCategory() const noexcept {
+        return (*mDescription->mCategory).mCreativeCategory;
+    }
+
+    ICustomItem& creativeCategory(::SharedTypes::v1_21_110::ItemCategory::CreativeItemCategory value) {
+        (*mDescription->mCategory).mCreativeCategory = value;
+        return *this;
+    }
+
+    [[nodiscard]] std::string creativeGroup() const {
+        return (*mDescription->mCategory).mCreativeGroupName->value_or("");
+    }
+
+    ICustomItem& creativeGroup(std::string value) {
+        (*mDescription->mCategory).mCreativeGroupName = std::move(value);
+        return *this;
+    }
+
+    [[nodiscard]] bool hiddenInCommands() const noexcept {
+        return (*mDescription->mCategory).mIsHiddenInCommands->value_or(false);
+    }
+
+    ICustomItem& hiddenInCommands(bool value) {
+        (*mDescription->mCategory).mIsHiddenInCommands = value;
+        return *this;
+    }
+
+    [[nodiscard]] std::vector<std::string> tags() const {
+        auto it = mComponents.find("minecraft:tags");
+        if (it == mComponents.end() || !it->second) return {};
+        return *static_cast<::TagsItemComponent*>(it->second.get())->mTags;
+    }
+
+    ICustomItem& tags(std::vector<std::string> value) {
+        auto component    = std::make_shared<::TagsItemComponent>();
+        *component->mTags = std::move(value);
+        return addComponent("minecraft:tags", std::move(component));
+    }
+
+    ICustomItem& icon(std::string texture) {
+        ::SharedTypes::v1_21_80::IconItemComponent payload{};
+        auto                                       component = std::make_shared<::IconItemComponent>(payload);
+        component->setTexturePath(texture);
+        return addComponent("minecraft:icon", std::move(component));
+    }
+
+    ICustomItem& maxStackSize(uint8_t value) {
+        auto component           = std::make_shared<::MaxStackSizeItemComponent>();
+        component->mMaxStackSize = value;
+        return addComponent("minecraft:max_stack_size", std::move(component));
+    }
+
+    ICustomItem& durability(int maxDamage, int minChance = 100, int maxChance = 100) {
+        auto component                 = std::make_shared<::DurabilityItemComponent>();
+        component->mMaxDamage          = maxDamage;
+        component->mDamageChance->mMin = minChance;
+        component->mDamageChance->mMax = maxChance;
+        return addComponent("minecraft:durability", std::move(component));
+    }
+
+    ICustomItem& damage(int value) {
+        auto component     = std::make_shared<::DamageItemComponent>();
+        component->mDamage = static_cast<short>(value);
+        return addComponent("minecraft:damage", std::move(component));
+    }
+
+    ICustomItem& displayName(std::string descriptionId) {
+        auto component            = std::make_shared<::DisplayNameItemComponent>();
+        component->mDescriptionId = std::move(descriptionId);
+        return addComponent("minecraft:display_name", std::move(component));
+    }
+
+    ICustomItem& rarity(std::string value) {
+        auto component = std::make_shared<::RarityItemComponent>();
+        if (value == "uncommon") {
+            component->mRarity = ::Rarity::Uncommon;
+        } else if (value == "rare") {
+            component->mRarity = ::Rarity::Rare;
+        } else if (value == "epic") {
+            component->mRarity = ::Rarity::Epic;
+        } else {
+            component->mRarity = ::Rarity::Common;
+        }
+        return addComponent("minecraft:rarity", std::move(component));
+    }
+
+    ICustomItem& glint(bool value = true) {
+        auto component      = std::make_shared<::GlintItemComponent>();
+        component->mIsGlint = value;
+        return addComponent("minecraft:glint", std::move(component));
+    }
+
+    ICustomItem& handEquipped(bool value = true) {
+        auto component           = std::make_shared<::HandEquippedItemComponent>();
+        component->mHandEquipped = value;
+        return addComponent("minecraft:hand_equipped", std::move(component));
+    }
+
+    ICustomItem& offHandAllowed(bool value = true) {
+        auto component           = std::make_shared<::AllowOffHandItemComponent>();
+        component->mAllowOffHand = value;
+        return addComponent("minecraft:allow_off_hand", std::move(component));
+    }
+
+    ICustomItem& canDestroyInCreative(bool value = true) {
+        auto component                   = std::make_shared<::CanDestroyInCreativeItemComponent>();
+        component->mCanDestroyInCreative = value;
+        return addComponent("minecraft:can_destroy_in_creative", std::move(component));
+    }
+
+    ICustomItem& enchantable(std::string slot, int value) {
+        auto component           = std::make_shared<::EnchantableItemComponent>();
+        component->mEnchantSlot  = std::move(slot);
+        component->mEnchantValue = static_cast<uchar>(value);
+        return addComponent("minecraft:enchantable", std::move(component));
+    }
+
+    ICustomItem& fuel(float duration) {
+        auto component           = std::make_shared<::FuelItemComponent>();
+        component->mFuelDuration = duration;
+        return addComponent("minecraft:fuel", std::move(component));
+    }
+
+    ICustomItem& compostable(uint8_t chance) {
+        auto component               = std::make_shared<::CompostableItemComponent>();
+        component->mCompostingChance = static_cast<schar>(chance);
+        return addComponent("minecraft:compostable", std::move(component));
+    }
+
+    ICustomItem& food(int nutrition, float saturationModifier, bool canAlwaysEat = false) {
+        ::SharedTypes::v1_20_50::FoodItemComponent payload{};
+        payload.mNutrition          = nutrition;
+        payload.mSaturationModifier = saturationModifier;
+        payload.mCanAlwaysEat       = canAlwaysEat;
+        return addComponent("minecraft:food", std::make_shared<::FoodItemComponent>(payload));
+    }
+
+    ICustomItem& wearable(::SharedTypes::Legacy::EquipmentSlot slot, int protection) {
+        return addComponent("minecraft:wearable", makeWearableItemComponent(slot, protection));
+    }
+
+    ICustomItem& blockPlacer(std::string block, bool canUseAsIcon = true, bool replaceBlockItem = true) {
+        if (auto const* type = ::BlockTypeRegistry::get().lookupByName(::HashedString{block}, false)) {
+            this->mBlockType = type;
+        }
+        return addComponent(
+            "minecraft:block_placer",
+            makePlanterItemComponent(std::move(block), canUseAsIcon, replaceBlockItem)
+        );
+    }
+
+    ICustomItem& cooldown(float seconds, std::string category) {
+        ::SharedTypes::v1_20_50::CooldownItemComponent payload{};
+        payload.mDuration = seconds;
+        payload.mCategory = std::move(category);
+        payload.mType     = ::SharedTypes::ItemCooldownType::Use;
+        return addComponent("minecraft:cooldown", std::make_shared<::CooldownItemComponent>(payload));
+    }
+
+    ICustomItem& useModifiers(float durationSeconds, std::optional<float> movementModifier = std::nullopt) {
+        ::SharedTypes::Beta::UseModifiersItemComponent payload{};
+        payload.mUseDuration      = durationSeconds;
+        payload.mMovementModifier = movementModifier;
+        payload.mEmitVibrations   = false;
+        payload.mStartUsing       = ::SharedTypes::v1_26_30::UseModifiersItemComponent::StartUsing::Always;
+        return addComponent("minecraft:use_modifiers", std::make_shared<::UseModifiersItemComponent>(payload));
+    }
+
+    [[nodiscard]] ::ComponentItem* getComponentItem() const noexcept { return mComponentItem.get(); }
+
+    void initComponentItem(::cereal::ReflectionCtx const& ctx) {
+        mComponentItem = std::make_unique<::ComponentItem>(this->mFullName->getString(), this->mId, ctx);
+        for (auto const& [name, component] : mComponents) {
+            if (!component) continue;
+            component->mOwner = mComponentItem.get();
+            mComponentItem->mItemComponents->emplace(::HashedString{name}, component);
+            mComponentItem->mRegisteredCerealComponents->emplace(name, component);
+            if (name == "minecraft:icon") {
+                mComponentItem->mIcon = std::static_pointer_cast<::IconItemComponent>(component);
             }
+            component->_initializeComponent(*mComponentItem);
         }
-        return false;
+
+        mDescription->mIdentifier->mValue = this->mFullName->getString();
+        this->mCreativeCategory           = static_cast<::SharedTypes::CreativeItemCategory>(
+            static_cast<uchar>((*mDescription->mCategory).mCreativeCategory)
+        );
+        this->mCreativeGroup      = (*mDescription->mCategory).mCreativeGroupName->value_or("");
+        this->mIsHiddenInCommands = (*mDescription->mCategory).mIsHiddenInCommands->value_or(false)
+                                      ? ::ItemCommandVisibility::Hidden
+                                      : ::ItemCommandVisibility::Visible;
     }
 
-    int getDamageChance(int unbreaking) const override {
-        // `T::` on purpose: an unqualified call would come back here.
-        return T::getDamageChance(unbreaking) * getItemDamageChance().random() / 100;
+    std::unique_ptr<::CompoundTag> buildNetworkTag() const override {
+        return mComponentItem ? mComponentItem->buildNetworkTag() : T::buildNetworkTag();
     }
-
-    void initServer(
-        ::SharedTypes::v1_26_30::ItemDocument&&         data,
-        ::SemVersion const&                             documentVersion,
-        ::Experiments const&                            experiments,
-        ::std::optional<::LegacyEventItemComponentData> legacyEventData
-    ) override {
-        T::initServer(std::move(data), documentVersion, experiments, legacyEventData);
-    }
-
-    void initClient(
-        ::SharedTypes::v1_26_30::ItemDocument&& data,
-        ::SemVersion const&                     documentVersion,
-        ::Experiments const&                    experiments,
-        ::std::optional<::ItemIconInfo> (*iconFactory)(::std::string const&, int)
-    ) override {
-        T::initClient(std::move(data), documentVersion, experiments, iconFactory);
-    }
-
-    ::HashedString const& getCooldownCategory() const override {
-        static ::HashedString empty;
-        return empty;
-    }
-
-    float getFurnaceXPmultiplier(::ItemStackBase const&) const override { return 0; }
-
-    bool canDestroyInCreative() const override { return true; }
-
-    int getEnchantSlot() const override { return (int)getEnchantmentSlot(); }
-
-    short getMaxDamage() const override { return getItemDurability(); }
 
     bool isComponentBased() const override { return false; }
-
-    std::string getInteractText(::Player const&) const override { return getInteractButtonText(); }
 };
 
 } // namespace modapi::inline item

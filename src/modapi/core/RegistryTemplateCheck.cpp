@@ -8,8 +8,6 @@
 #include "modapi/DeferredRegister.h"
 #include "modapi/gamerule/GameRuleRegistry.h"
 #include "modapi/item/ItemRegistry.h"
-#include "modapi/item/shared_types/ItemInitializer.h"
-#include "modapi/item/shared_types/NetworkTagBuilder.h"
 #include "modapi/recipe/RecipeRegistry.h"
 #include "modapi/worldgen/FeatureRegistry.h"
 #include "modapi/worldgen/FeatureRuleRegistry.h"
@@ -23,9 +21,7 @@ namespace {
 
 class CheckItem : public item::ICustomItem<::Item> {
 public:
-    explicit CheckItem(std::string const& identifier) : ICustomItem(identifier) {}
-
-    ItemIcon getIcon() const override { return {}; }
+    explicit CheckItem(std::string const& identifier) : ICustomItem(identifier) { maxStackSize(1); }
 };
 
 class CheckRecipe : public recipe::ICustomRecipe {
@@ -37,12 +33,6 @@ public:
     void _init() override {}
 };
 
-class CheckGameRule : public gamerule::ICustomGameRule<bool> {
-public:
-    std::string getIdentifier() const override { return "modapi:template_check"; }
-
-    bool getDefaultValue() const override { return false; }
-};
 
 class CheckFeature : public worldgen::ICustomFeature {
 public:
@@ -53,24 +43,26 @@ public:
 
 class CheckRule : public worldgen::ICustomFeatureRule {
 public:
+    CheckRule() { placesFeature("modapi:template_feature").passes({"surface_pass"}); }
+
     ll::coro::Generator<BlockPos> place(BlockHelper const&, BlockPos const& pos, Random&) override { co_yield pos; }
 };
 
 [[maybe_unused]] void deferredRegisterTemplateCheck() {
-    static DeferredRegister<item::ItemRegistry, CheckItem>             checkItem{"modapi:template_check"};
-    static DeferredRegister<recipe::RecipeRegistry, CheckRecipe>       checkRecipe;
-    static DeferredRegister<gamerule::GameRuleRegistry, CheckGameRule> checkGameRule;
-    // A feature and a rule carry their identifier in the registration structure.
+    static DeferredRegister<item::ItemRegistry, CheckItem> checkItem{
+        item::ItemRegistry::builder<CheckItem>("modapi:template_check").build()
+    };
+    static DeferredRegister<recipe::RecipeRegistry, CheckRecipe> checkRecipe{
+        recipe::RecipeRegistry::builder<CheckRecipe>("modapi:template_check").build()
+    };
+    static DeferredRegister<gamerule::GameRuleRegistry, gamerule::GameRuleRegistration> checkGameRule{
+        gamerule::GameRuleRegistry::builder("modapi:template_check").boolDefault(false).build()
+    };
     static DeferredRegister<worldgen::FeatureRegistry, CheckFeature> checkFeature{
-        worldgen::FeatureRegistry::FeatureRegistration<>{.mIdentifier = "modapi:template_check", .mArguments = {}}
+        worldgen::FeatureRegistry::builder<CheckFeature>("modapi:template_check").build()
     };
     static DeferredRegister<worldgen::FeatureRuleRegistry, CheckRule> checkRule{
-        worldgen::FeatureRuleRegistration<>{
-                                            .mIdentifier    = "modapi:template_check",
-                                            .mPlacesFeature = {},
-                                            .mArguments     = {},
-                                            .mPasses        = {}
-        }
+        worldgen::FeatureRuleRegistry::builder<CheckRule>("modapi:template_check").build()
     };
 }
 

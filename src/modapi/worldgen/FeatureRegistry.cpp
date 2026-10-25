@@ -62,9 +62,8 @@ LL_TYPE_INSTANCE_HOOK(
 ) {
     unhook();
     for (auto& [identifier, data_] : GlobalData::getInstance().rules) {
-        // NOTE: this parser is being called with a document that did not come from a pack, and every attempt to do so
-        // aborts the engine inside `origin` (0xC0000005, and 0xC000001D with a name that outlives the call). A rule
-        // that is meant to reach a live level therefore has to be delivered as a file in a behaviour pack instead.
+        // NOTE: the parser only accepts a document that belongs to a pack; rules reach a live level as files in a
+        // behaviour pack.
         std::string ruleFileName = identifier.substr(identifier.find(':') + 1);
         origin(ruleFileName, std::move(data_), minEngineVersion, worldRegistries, bucketedFeatures, isBasePack);
     }
@@ -127,8 +126,7 @@ struct RuleFeature : public IFeature {
         auto* feature = placedFeature();
         if (feature == nullptr) return std::nullopt;
 
-        // Everything below comes from the generation hooks. During a pass that does not fill them there is nothing to
-        // place into, and dereferencing the random source regardless is what aborted the server.
+        // Everything below comes from the generation hooks; a pass that does not fill them has nothing to place into.
         auto& local = LocalData::getInstance();
         if (local.mRandom == nullptr) return std::nullopt;
 
@@ -185,9 +183,6 @@ struct FeatureRegistry::Impl {
                        mHooks;
     ::FeatureRegistry* mRegistry = nullptr;
     bool               mReady    = false;
-    // Features handed over through the direct API before a pass ran; single shot, they are moved
-    // into the first registry that is configured afterwards.
-    ll::DenseMap<std::string, std::unique_ptr<IFeature>> mPendingFeatures;
 };
 
 FeatureRegistry::FeatureRegistry() { pImpl = std::make_unique<Impl>(); }
@@ -227,15 +222,6 @@ FeatureRegistry::_registerFeature(std::string_view identifier, std::unique_ptr<I
     }
 }
 
-FeatureRegistry::ProductRef
-FeatureRegistry::registerFeature(std::string_view identifier, std::unique_ptr<IFeature> feature) {
-    if (pImpl->mRegistry != nullptr) return _registerFeature(identifier, std::move(feature));
-    if (!feature) return {};
-    // No pass is running: hand it over to the next one.
-    pImpl->mPendingFeatures[std::string{identifier}] = std::move(feature);
-    return {};
-}
-
 FeatureRuleRegistry& FeatureRuleReadyEvent::registry() const { return mRegistry; }
 
 struct FeatureRuleRegistry::Impl {
@@ -266,6 +252,10 @@ FeatureRuleRegistry::ProductRef FeatureRuleRegistry::_registerRule(
     std::unique_ptr<ICustomFeatureRule> rule
 ) {
     if (!rule) return {};
+    if (passes.empty()) {
+        core::getLogger().error("FeatureRuleRegistry: '{}' names no placement pass.", identifier);
+        return {};
+    }
     static uint64 idx{0};
     auto          ruleId = std::format("modapi:rule_{}", idx++);
     auto          shared = std::shared_ptr<ICustomFeatureRule>{std::move(rule)};
@@ -307,14 +297,6 @@ void FeatureRegistry::_applyFeatureFactories(::FeatureRegistry& registry) {
             if (auto feature = factory()) registry._registerFeature(identifier, std::move(feature));
         } catch (...) {}
     }
-    // Features handed over through the direct API before this pass.
-    for (auto& [identifier, feature] : pImpl->mPendingFeatures) {
-        if (!feature) continue;
-        try {
-            registry._registerFeature(identifier, std::move(feature));
-        } catch (...) {}
-    }
-    pImpl->mPendingFeatures.clear();
 }
 
 FeatureRegistry& FeatureReadyEvent::registry() const { return mRegistry; }

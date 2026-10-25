@@ -1,18 +1,19 @@
 #pragma once
 #include "modapi/Macros.h"
+#include "modapi/Registration.h"
 #include "modapi/Registry.h"
-#include "modapi/item/base/ICustomArmorItem.h"
 #include "modapi/item/base/ICustomItem.h"
-#include "modapi/item/shared_types/ItemInitializer.h"
-#include "modapi/item/shared_types/NetworkTagBuilder.h"
 #include <concepts>
 #include <functional>
 #include <ll/api/event/Event.h>
+#include <ll/api/service/Bedrock.h>
 #include <mc/common/WeakPtr.h>
 #include <mc/deps/core/utility/optional_ref.h>
 #include <mc/world/item/Item.h>
+#include <mc/world/level/Level.h>
 #include <memory>
 #include <string_view>
+#include <tuple>
 #include <type_traits>
 #include <utility>
 
@@ -22,11 +23,6 @@ namespace modapi::inline item {
 
 class ItemRegistry;
 
-// Published at the end of `VanillaItems::registerItems`, i.e. after vanilla registered its items
-// and before `ItemRegistry::_movePreRegistryToMainRegistry` moves them into the main registry.
-//
-// Items added after that point never reach the main registry nor the client item definition packet,
-// so this is the only window in which custom items can be injected.
 class ItemReadyEvent final : public ll::event::Event {
     ItemRegistry& mRegistry;
 
@@ -35,6 +31,13 @@ public:
 
     MOD_NDAPI ItemRegistry& registry() const;
 };
+
+template <class Entry>
+concept CustomItemEntry =
+    std::derived_from<Entry, ::Item> && requires { typename Entry::CustomItemBase; } && requires(Entry& entry) {
+        { entry.getComponentItem() } -> std::convertible_to<::ComponentItem*>;
+        entry.initComponentItem(std::declval<::cereal::ReflectionCtx const&>());
+    };
 
 class ItemRegistry {
 public:
@@ -54,62 +57,44 @@ public:
 public:
     MOD_NDAPI static ItemRegistry& getInstance();
 
-    // True once the vanilla item pass has run, which is when items can be injected.
     MOD_NDAPI bool isReady() const noexcept;
 
-    // Reserves the next item id, for an item that needs its final id *while it is being constructed* - a
-    // `::BlockItem` takes state from the id it is handed, so a later id assignment leaves it inconsistent and
-    // the engine lists a broken creative entry. Returns 0 before the item pass has run.
-
-    // Registers the ready event emitter (idempotent); called by `ModAPI::load()` and by every
-    // `DeferredRegister<ItemRegistry, ...>`.
     MOD_API static void ensureEventRegistered();
 
     template <class Entry>
-    static constexpr bool isEntry = std::derived_from<Entry, ::Item>;
+    static constexpr bool isEntry = CustomItemEntry<Entry>;
 
-    // Builds `Entry` and injects it into the current item registry.
-    template <std::derived_from<::Item> Entry, class... Args>
-    ProductRef registerEntry(Args&&... args) {
-        return registerItem<Entry>(std::forward<Args>(args)...);
+    template <class Entry>
+    static ClassRegistrationBuilder<ItemRegistry, Entry> builder(std::string identifier) {
+        return ClassRegistrationBuilder<ItemRegistry, Entry>{std::move(identifier)};
     }
 
-    template <std::derived_from<::Item> Entry, class... Args>
-    ProductRef registerItem(Args&&... args) {
-        return _registerItem([... args = std::forward<Args>(args)]() -> std::unique_ptr<::Item> {
-            auto item = std::make_unique<Entry>(args...);
-            if constexpr (requires { item->_init(); }) item->_init();
-            return std::move(item);
-        });
+    template <CustomItemEntry Entry, class... Args>
+    ProductRef registerEntry(ClassRegistration<Entry, Args...> registration) {
+        return _registerItem(
+            [identifier = registration.mIdentifier,
+             arguments  = registration.mArguments]() mutable -> std::unique_ptr<::Item> {
+                return std::apply(
+                    [&identifier](auto&&... args) -> std::unique_ptr<::Item> {
+                        return std::make_unique<Entry>(identifier, std::forward<decltype(args)>(args)...);
+                    },
+                    arguments
+                );
+            },
+            [](::Item& item, ::cereal::ReflectionCtx const& ctx) { static_cast<Entry&>(item).initComponentItem(ctx); }
+        );
     }
 
     MOD_API void forEachItemInRegistry(std::function<bool(::Item& item)>&& func);
 
     MOD_NDAPI ::WeakPtr<::Item> getItem(std::string_view name);
 
-public:
-    MOD_API bool setFireResistant(std::string_view itemName, bool value = true);
+    // Builds the item, assigns its id, runs `afterId` and injects it; empty when the item pass has not run.
+    MOD_NDAPI ProductRef _registerItem(
+        std::function<std::unique_ptr<::Item>()>&&                     factory,
+        std::function<void(::Item&, ::cereal::ReflectionCtx const&)>&& afterId = {}
+    );
 
-    MOD_API bool addTag(std::string_view itemName, std::string_view tag);
-
-    MOD_API bool setIcon(std::string_view itemName, std::string_view icon);
-
-    MOD_API bool setDisplayName(std::string_view itemName, std::string_view displayName);
-
-    MOD_API bool setRepairItem(std::string_view itemName, std::string_view fixItem);
-
-    MOD_NDAPI ::CompoundTag& getAndModifyVanillaNetworkTagInfo(std::string_view itemName);
-
-public:
-    MOD_NDAPI ItemRegistry& _modifyItem(std::function<void(ItemRegistry&)>&&);
-
-    // Builds the item and injects it; empty when the item pass has not run yet.
-    MOD_NDAPI ProductRef _registerItem(std::function<std::unique_ptr<::Item>()>&& func);
-
-    // The engine registered one of the items this registry handed to its pre-registry: the item now has its
-    // id, so the work that needs it (command enum, creative entry) happens here.
-
-    // Binds the registry vanilla is filling and publishes `ItemReadyEvent`.
     MOD_API void _bindRegistry(::ItemRegistry& registry);
 };
 

@@ -3,6 +3,9 @@
 #include "modapi/worldgen/BlockHelper.h"
 #include "modapi/worldgen/base/ICustomFeature.h"
 #include <ll/api/coro/Generator.h>
+#include <string>
+#include <utility>
+#include <vector>
 
 namespace modapi::inline worldgen {
 
@@ -26,6 +29,24 @@ public:
     // Yields the positions this rule places, in the order the generator produces them.
     MOD_NDAPI virtual ll::coro::Generator<BlockPos>
     place(BlockHelper const& helper, BlockPos const& pos, Random& random) = 0;
+
+    ICustomFeatureRule& placesFeature(std::string value) {
+        mPlacesFeature = std::move(value);
+        return *this;
+    }
+
+    [[nodiscard]] std::string const& placesFeature() const { return mPlacesFeature; }
+
+    ICustomFeatureRule& passes(std::vector<std::string> value) {
+        mPasses = std::move(value);
+        return *this;
+    }
+
+    [[nodiscard]] std::vector<std::string> const& passes() const { return mPasses; }
+
+private:
+    std::string              mPlacesFeature;
+    std::vector<std::string> mPasses;
 };
 
 } // namespace modapi::inline worldgen

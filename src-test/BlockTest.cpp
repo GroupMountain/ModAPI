@@ -11,12 +11,10 @@
 #include <mc/world/level/block/definition/BlockStateDefinition.h>
 #include <mc/world/level/block/components/BlockMaterialInstance.h>
 #include "modapi/item/ItemRegistry.h"
-#include "modapi/item/base/ICustomArmorItem.h"
 #include "modapi/item/CreativeItemRegistry.h"
-#include "modapi/item/base/ICustomBlockItem.h"
-#include "modapi/item/base/ICustomFoodItem.h"
-#include "modapi/item/base/ICustomToolItem.h"
 #include "modapi/item/base/ICustomItem.h"
+#include "mc/world/item/HumanoidArmorItem.h"
+
 #include "modapi/worldgen/BlockHelper.h"
 #include <algorithm>
 #include <filesystem>
@@ -57,127 +55,93 @@ namespace {
 
 constexpr std::string_view TestBlockName = "modapi_test:test_block";
 
-// A custom block is an engine block type: the mod subclasses `::BlockType` directly and ModAPI hands the
-// constructor the id it allocated, so there is no ModAPI base class in the way.
-class TestBlock : public ::BlockType {
+class TestBlock : public modapi::ICustomBlock<::BlockType> {
 public:
     TestBlock(std::string const& identifier, int id)
-    : ::BlockType(
+    : ICustomBlock(
           identifier,
           id,
           ::BlockTypeRegistry::get().lookupByName(::HashedString{"minecraft:stone"}, false)->mMaterial
-      ) {}
+      ) {
+        ::BlockMenuCategory menu{};
+        menu.mCreativeCategory = ::SharedTypes::v1_21_110::ItemCategory::CreativeItemCategory::Nature;
+        menuCategory(menu);
+    }
 
-    // Engine hooks, overridden so the test can show the engine gets these answers.
     bool canProvideSupport(::Block const&, uchar, ::BlockSupportType) const override { return false; }
-
 };
 
 // A block with no document anywhere: registered from C++ alone, which is what the client property publisher is for -
 // without it a client is never told this block exists.
 constexpr std::string_view TestCppOnlyBlockName = "modapi_test:cpp_only_block";
 
-// A property that only declares the creative category. Two things are under test when a block is registered with it:
-// the entry's `menu_category.category` has to come out of the engine's own enum -> name helper (not from a default
-// ModAPI writes), and the material instances it does not name still have to be supplied by the fallback. The category
-// is deliberately not `Construction`: the fallback writes that one, so only a different value proves which path ran.
-inline modapi::BlockRegistration<> withCategory() {
-    modapi::BlockProperty property;
-    property.mDescription.mMenuCategory->mCreativeCategory =
-        ::SharedTypes::v1_21_110::ItemCategory::CreativeItemCategory::Nature;
-    return modapi::BlockRegistration<>{ {}, std::move(property) };
-}
-
 modapi::DeferredRegister<modapi::BlockRegistry, TestBlock> gTestBlock{
-    std::string{TestBlockName},
-    withCategory(),
+    modapi::BlockRegistry::builder<TestBlock>(std::string{TestBlockName}).build()
 };
 
 modapi::DeferredRegister<modapi::BlockRegistry, TestBlock> gTestCppOnlyBlock{
-    std::string{TestCppOnlyBlockName},
-    withCategory(),
+    modapi::BlockRegistry::builder<TestBlock>(std::string{TestCppOnlyBlockName}).build()
 };
 
 // A plain custom item, overriding the ModAPI hooks `ICustomItem` offers.
 class TestItem : public modapi::item::ICustomItem<::Item> {
 public:
     TestItem(std::string const& identifier) : ICustomItem(identifier) {
+        // An icon name the test pack maps.
+        icon("modapi_test_block").maxStackSize(16).glint();
     }
-
-    // An icon name the test pack maps.
-    modapi::ItemIcon getIcon() const override { return ::modapi::ItemIcon{"modapi_test_block"}; }
-    uint8_t                  getItemMaxStackSize() const override { return 16; }
-    bool                     isFoil() const override { return true; }
 };
 
-// The item that places the custom block. It *is* an engine `::BlockItem` (the class carrying placement), and
-// it overrides both a ModAPI hook and an engine hook.
-class TestBlockItem : public modapi::item::ICustomBlockItem {
+// The item that places the custom block. It *is* an engine `::BlockItem` (the class carrying placement) with
+// the component builder on top.
+class TestBlockItem : public modapi::item::ICustomItem<::BlockItem> {
 public:
-    TestBlockItem(std::string const& identifier) : ICustomBlockItem(identifier, ::HashedString{TestBlockName}) {
-        // Is the block visible to this process when the item is built?
-        auto const* block = ::BlockTypeRegistry::get().lookupByName(::HashedString{TestBlockName}, false);
-        test::getLogger().info(
-            "[BLOCKS] TestBlockItem built: block lookup says {}",
-            block != nullptr ? block->mNameInfo->mFullName->getString() : std::string{"<null>"}
-        );
+    TestBlockItem(std::string const& identifier)
+    : ICustomItem(identifier, 0, ::HashedString{TestBlockName}) {
+        blockPlacer(std::string{TestBlockName}).maxStackSize(16).glint().displayName("ModAPI 测试方块");
     }
 
-    uint8_t getItemMaxStackSize() const override { return 16; }
-    bool    isFoil() const override { return true; }
-
-    bool isMusicDisk() const override { return true; } // an engine virtual, not a ModAPI one
-
-    // No icon override: `::BlockItem::getIconInfo` resolves an item's icon from the block it is linked to, which
-    // is exactly how an addon block's item gets its picture. Naming a texture here would take that away.
-    std::string        getDisplayName() const override { return "ModAPI 测试方块"; }
+    bool isMusicDisk() const override { return true; }
 };
 
-modapi::DeferredRegister<modapi::item::ItemRegistry, TestItem>      gTestItem{std::string{"modapi_test:test_item"}};
-// Registered again, now that the definition it writes declares `minecraft:block_placer` with the block it stands
-// for: that component is what the engine itself uses to tie an item to a block, and it carries a
-// `mCanUseBlockAsIcon` flag, so a client has a reason to draw the block rather than a flat texture.
+modapi::DeferredRegister<modapi::item::ItemRegistry, TestItem> gTestItem{
+    modapi::item::ItemRegistry::builder<TestItem>("modapi_test:test_item").build()
+};
+// The block item is an engine `::BlockItem`; `block_placer` is the component that ties it to the block.
 modapi::DeferredRegister<modapi::item::ItemRegistry, TestBlockItem> gTestBlockItem{
-    std::string{"modapi_test:test_block"}
+    modapi::item::ItemRegistry::builder<TestBlockItem>("modapi_test:test_block").build()
 };
 
-// The remaining kinds of item a mod can register. Each one is a different shim, but they all end at the same
-// registration path, so registering one of every kind is what tells whether that path is kind agnostic.
-class TestFoodItem : public modapi::item::ICustomFoodItem<::Item> {
+class TestFoodItem : public modapi::item::ICustomItem<::Item> {
 public:
-    explicit TestFoodItem(std::string const& identifier) : ICustomFoodItem(identifier) {}
-
-    modapi::ItemIcon getIcon() const override { return ::modapi::ItemIcon{"modapi_test_block"}; }
-    int   getNutrition() const override { return 4; }
-    float getSaturation() const override { return 1.0f; }
+    explicit TestFoodItem(std::string const& identifier) : ICustomItem(identifier) {
+        icon("modapi_test_block").food(4, 1.0f);
+    }
 };
 
-class TestToolItem : public modapi::item::ICustomToolItem<::Item> {
+class TestToolItem : public modapi::item::ICustomItem<::Item> {
 public:
-    explicit TestToolItem(std::string const& identifier) : ICustomToolItem(identifier) {}
-
-    modapi::ItemIcon getIcon() const override { return ::modapi::ItemIcon{"modapi_test_block"}; }
+    explicit TestToolItem(std::string const& identifier) : ICustomItem(identifier) {
+        icon("modapi_test_block").maxStackSize(1).handEquipped().canDestroyInCreative(false);
+    }
 };
 
-class TestArmorItem : public modapi::item::ICustomArmorItem {
+class TestArmorItem : public modapi::item::ICustomItem<::HumanoidArmorItem> {
 public:
     explicit TestArmorItem(std::string const& identifier)
-    : ICustomArmorItem(identifier, ::HumanoidArmorItem::Tier::Iron) {}
-
-    modapi::ItemIcon getIcon() const override { return ::modapi::ItemIcon{"modapi_test_block"}; }
-    ::SharedTypes::Legacy::ArmorSlot getArmorSlot() const override {
-        return ::SharedTypes::Legacy::ArmorSlot::Head;
+    : ICustomItem(identifier, ::HumanoidArmorItem::Tier::Iron) {
+        icon("modapi_test_block").wearable(::SharedTypes::Legacy::EquipmentSlot::Head, 2);
     }
 };
 
-modapi::DeferredRegister<modapi::item::ItemRegistry, TestFoodItem>  gTestFoodItem{
-    std::string{"modapi_test:test_food_item"}
+modapi::DeferredRegister<modapi::item::ItemRegistry, TestFoodItem> gTestFoodItem{
+    modapi::item::ItemRegistry::builder<TestFoodItem>("modapi_test:test_food_item").build()
 };
-modapi::DeferredRegister<modapi::item::ItemRegistry, TestToolItem>  gTestToolItem{
-    std::string{"modapi_test:test_tool_item"}
+modapi::DeferredRegister<modapi::item::ItemRegistry, TestToolItem> gTestToolItem{
+    modapi::item::ItemRegistry::builder<TestToolItem>("modapi_test:test_tool_item").build()
 };
 modapi::DeferredRegister<modapi::item::ItemRegistry, TestArmorItem> gTestArmorItem{
-    std::string{"modapi_test:test_armor_item"}
+    modapi::item::ItemRegistry::builder<TestArmorItem>("modapi_test:test_armor_item").build()
 };
 
 // Installed while the mod loads: the server composes the pack stack it offers to clients when a level
@@ -312,16 +276,14 @@ int runBlockTests() {
 
     // Block states are built after the definitions are loaded, which is why this is checked here and not
     // while the block is registered: a type without a default state cannot be placed.
-    report.isTrue(
-        "defaultState",
-        &::BlockTypeRegistry::get().getDefaultBlockState(::HashedString{TestBlockName}, false) != nullptr
-    );
+    report.noThrow("defaultState", [] {
+        (void)::BlockTypeRegistry::get().getDefaultBlockState(::HashedString{TestBlockName}, false);
+    });
 
     // The same for vanilla's own blocks, as a control.
-    report.isTrue(
-        "defaultState.vanillaControl",
-        &::BlockTypeRegistry::get().getDefaultBlockState(::HashedString{"minecraft:stone"}, false) != nullptr
-    );
+    report.noThrow("defaultState.vanillaControl", [] {
+        (void)::BlockTypeRegistry::get().getDefaultBlockState(::HashedString{"minecraft:stone"}, false);
+    });
 
     // What the client is told: the definition group is what `generateServerBlockProperties` walks and
     // `StartGamePacket` sends.
@@ -476,13 +438,6 @@ int runBlockTests() {
             report.isTrue(std::string{"items."} + label + "Registered", static_cast<bool>(item));
         }
 
-        // The block item is listed in a creative inventory by the ready listener the mod installs, so this is what
-        // tells whether a mod can put its own item there at all.
-        report.isTrue(
-            "items.blockInCreative",
-            !modapi::CreativeItemRegistry::getInstance().getCreativeItem("modapi_test:test_block").empty()
-        );
-
         // What a client is actually sent. `buildNetworkTag()` is only a local call - the data a client reads
         // comes out of this packet, so build one here and look at this item's entry. This also proves the hook
         // that fills the entry runs at all.
@@ -493,7 +448,12 @@ int runBlockTests() {
             // Read-only comparison of what the engine publishes for the item it created for a pure addon block
             // (`modapi_test:pack_block`) against the one it created for our block: the whole point is to see
             // whether the two definitions differ at all, since a client accepts one and not the other.
-            for (char const* name : {"modapi_test:pack_block", "modapi_test:test_block", "modapi_test:test_item"}) {
+            for (char const* name :
+                 {"modapi_test:pack_block",
+                  "modapi_test:test_block",
+                  "modapi_test:test_item",
+                  "modapi_test:registry_test_item",
+                  "minecraft:stick"}) {
                 for (auto& entry : *payload.mItems) {
                     if ((*entry.mName).getString() != name) continue;
 
@@ -517,6 +477,29 @@ int runBlockTests() {
                         componentData.mTags.size() == 1 ? "y" : "ies",
                         componentKeys
                     );
+                    if (componentData.mTags.contains("components")) {
+                        auto& components = componentData["components"].get<::CompoundTag>();
+                        if (components.mTags.contains("minecraft:icon")) {
+                            test::getLogger().info(
+                                "[BLOCKS] icon payload for {}: {}",
+                                name,
+                                components["minecraft:icon"].toSnbt()
+                            );
+                        }
+                        if (components.mTags.contains("item_properties")) {
+                            auto& properties = components["item_properties"].get<::CompoundTag>();
+                            bool  hasIcon    = properties.mTags.contains("minecraft:icon");
+                            if (name == std::string_view{"modapi_test:test_item"}) {
+                                report.isTrue("item.legacyIcon", hasIcon);
+                            }
+                            if (name == std::string_view{"modapi_test:registry_test_item"}) {
+                                report.isTrue("registryItem.legacyIcon", hasIcon);
+                            }
+                            if (name == std::string_view{"modapi_test:test_block"}) {
+                                report.isTrue("blockItem.noLegacyIcon", !hasIcon);
+                            }
+                        }
+                    }
                 }
             }
 
@@ -581,9 +564,12 @@ int runBlockTests() {
             auto const tag  = blockItem->buildNetworkTag();
             auto const snbt = tag != nullptr ? tag->toSnbt() : std::string{};
             test::getLogger().info("[BLOCKS] block item tag: {}", snbt);
-            // No icon assertion here: this item belongs to the engine, and `buildNetworkTag()` is not what a client
-            // reads anyway. What a client draws comes from the block's texture in the item atlas.
-            report.skip("blockItem.tagHasIcon");
+            // A block item is drawn from its block: no icon component, and `block_placer` carries the block.
+            report.isTrue(
+                "blockItem.hasBlockPlacer",
+                snbt.find("\"minecraft:block_placer\"") != std::string::npos
+            );
+            report.isTrue("blockItem.noIcon", snbt.find("\"minecraft:icon\"") == std::string::npos);
 
             // The item -> block link: the engine asks the item which block it renders as.
             // The link the engine actually keeps on an item is `mBlockType`.
@@ -812,19 +798,6 @@ void registerBlockTestCommand() {
     // so the C++ type stays the one that runs while the engine and a client both know the block.
     // The block has no document: it is registered from C++ alone, and ModAPI publishes it to clients itself.
 
-    // A block item for a block whose type came from C++ is built by ModAPI, not by the engine, and the engine only
-    // puts the items it built itself into a creative pass. Its item therefore has to be handed to the creative
-    // registry by the mod, and the ready event is where the registry of the current pass first exists.
-    test::listen<modapi::CreativeItemReadyEvent>([](modapi::CreativeItemReadyEvent& event) {
-        ::ItemInstance icon;
-        icon.reinit("modapi_test:test_block", 1, 0);
-        (void)event.registry().registerCreativeItem(
-            std::move(icon),
-            ::SharedTypes::CreativeItemCategory::Construction,
-            ""
-        );
-    });
-
     registerTestFunction("blocks", [] { return runBlockTests() == 0; });
 }
 } // namespace
@@ -833,8 +806,7 @@ REGISTER_ON_LOAD_TEST(BlockCommand, registerBlockTestCommand)
 REGISTER_TEST(Block, runBlockTests)
 
 // The engine declares these and does not export them: whichever translation unit builds one supplies the definition
-// (ModAPI does the same for the ones it builds). Registering a block hands over a `BlockRegistration`, which holds a
-// `BlockProperty` by value, so this plugin needs the default and copy constructors of what that property is made of.
+// (ModAPI does the same for the ones it builds).
 BlockDescription::BlockDescription()                             = default;
 BlockComponentGroupDescription::BlockComponentGroupDescription() = default;
 BlockComponentGroupDescription::BlockComponentGroupDescription(BlockComponentGroupDescription const&) = default;

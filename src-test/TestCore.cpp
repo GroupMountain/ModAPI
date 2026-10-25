@@ -41,11 +41,6 @@ bool Entry::enable() { return true; }
 bool Entry::disable() { return true; }
 
 bool Entry::unload() {
-    for (auto& test : mPendingOnUnloadTests) {
-        try {
-            test();
-        } catch (...) {}
-    }
     // Everything this mod attached to the event bus has to go before the DLL does, or the bus would
     // call a lambda whose code lives in an unloaded module while the process shuts down.
     removeListeners();
@@ -53,8 +48,6 @@ bool Entry::unload() {
 }
 
 void Entry::addOnLoadTest(std::function<void()>&& func) { mPendingOnLoadTests.push_back(std::move(func)); }
-
-void Entry::addOnUnloadTest(std::function<void()>&& func) { mPendingOnUnloadTests.push_back(std::move(func)); }
 
 } // namespace test
 

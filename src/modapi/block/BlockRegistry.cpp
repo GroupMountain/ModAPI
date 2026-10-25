@@ -1,7 +1,7 @@
 #include "modapi/block/BlockRegistry.h"
 #include "modapi/addons/RuntimePack.h"
 #include "modapi/core/FileUtils.h"
-#include "modapi/core/Gloabl.h"
+#include "modapi/core/Global.h"
 #include "modapi/core/RegistryEvent.h"
 #include <atomic>
 #include <ll/api/event/EventBus.h>
@@ -62,8 +62,7 @@ LL_TYPE_INSTANCE_HOOK(
 }
 
 // The engine creates a block's item while `VanillaItems::serverInitCreativeItemsCallback` walks this same
-// definition group, so a block that exists only as a definition gets its item from the engine - a block
-// registered from C++ needs an item of its own (`modapi::item::ICustomBlockItem`).
+// definition group; a block registered from C++ uses `ICustomItem<::BlockItem>` for its item.
 //
 // The packet a client gets its blocks from. `writeWithSerializationMode` is the virtual every sending path goes
 // through (the same one the item definitions had to move to), and it runs before anything is serialized, so this
@@ -96,11 +95,8 @@ struct BlockRegistry::Impl {
     std::unordered_map<std::string, BlockProperty> mBlockProperties;
 };
 
-// What a client is told about a block it has never heard of. The engine builds this same tag itself while it fills
-// the packet, out of the block's definition; a block registered from C++ has no definition behind it, so the tag is
-// written here instead. It mirrors, field for field, the tag the engine produces for a simple block (read out of a
-// live one as SNBT): material instances under `components`, the menu category, the molang version, and the block's
-// id and material.
+// What a client is told about a block with no definition behind it: material instances under `components`, the menu
+// category, the molang version, and the block's id and material.
 ::ServerBlockProperty _buildBlockProperty(std::string const& identifier, int blockId) {
     ::CompoundTag tag;
 
@@ -113,7 +109,6 @@ struct BlockRegistry::Impl {
     instance["texture"]           = identifier;
     instance["tint_method"]       = "none";
 
-    tag["menu_category"]["category"]              = "construction";
     tag["menu_category"]["category"]              = "construction";
     tag["menu_category"]["group"]                 = "";
     tag["menu_category"]["is_hidden_in_commands"] = false;
@@ -252,8 +247,6 @@ BlockRegistry& BlockRegistry::getInstance() {
 }
 
 bool BlockRegistry::isReady() const noexcept { return pImpl->mReady; }
-
-::Level* BlockRegistry::level() const noexcept { return pImpl->mLevel; }
 
 ::BlockDefinitionGroup* BlockRegistry::definitionGroup() const noexcept { return pImpl->mGroup; }
 

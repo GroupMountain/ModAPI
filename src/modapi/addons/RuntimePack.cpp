@@ -1,6 +1,6 @@
 #include "modapi/addons/RuntimePack.h"
 #include "modapi/addons/AddonsLoader.h"
-#include "modapi/core/Gloabl.h"
+#include "modapi/core/Global.h"
 #include <fstream>
 #include <random>
 #include <sstream>

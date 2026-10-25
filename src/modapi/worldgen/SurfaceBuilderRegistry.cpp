@@ -68,11 +68,6 @@ void SurfaceBuilderRegistry::_bindRegistry(::SurfaceBuilderRegistry& registry) {
 }
 
 SurfaceBuilderRegistry::ProductRef
-SurfaceBuilderRegistry::registerBuilder(::std::string_view identifier, ::std::unique_ptr<::ISurfaceBuilder> builder) {
-    return getInstance()._registerBuilder(identifier, ::std::move(builder));
-}
-
-SurfaceBuilderRegistry::ProductRef
 SurfaceBuilderRegistry::_registerBuilder(::std::string_view identifier, ::std::unique_ptr<::ISurfaceBuilder> builder) {
     if (pImpl->mRegistry == nullptr || !builder) return {};
     if (pImpl->mEntries.contains(identifier)) return {};

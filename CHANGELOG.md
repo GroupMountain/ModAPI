@@ -13,75 +13,36 @@ Since `26.10.0` the version number tracks the supported LeviLamina release: `26.
 
 ## [Unreleased]
 
-### Added
-
-- `modapi::worldgen::BiomeRegistry`: custom biomes whose behaviour is C++. A registration names the
-  vanilla biome it is built from (the engine's biome components cannot be created from a native mod, so the
-  template is copied), optionally claims climate cells (`BiomeClimate`, normalised to [-1, 1];
-  `fullRange()` takes over a replaced biome's whole share of the world), and optionally names a surface
-  builder. Registration happens in `BiomeReadyEvent`, which fires while the engine's registry is still open.
-  `configureBiome` does the same for a biome that already exists - one a behaviour pack defined, or one
-  another mod registered.
-- `modapi::worldgen::SurfaceBuilderRegistry` with `modapi::worldgen::ICustomSurfaceBuilder` (in
-  `modapi/worldgen/base/`): surface builders written in C++.
-  A builder is registered once (in `SurfaceBuilderReadyEvent`) under a ModAPI allocated key - the engine's own
-  keys are 0..7 - and any number of biomes can name it. The engine only hands `SurfaceBuilderData` to
-  `isBestBuilder`, which cannot tell biomes apart, so ModAPI installs the builder per chunk for the biomes
-  that name it instead of taking part in that resolution.
-- `modapi::worldgen::BiomeProperty::mComponents`: engine biome components are installed into the biome's
-  `BiomeComponentStorage` at registration, each as a `{ Bedrock::typeid_t<void> key, factory }` pair. The
-  keys are handed out by the engine at start up and are not exported, so `BiomeRegistry::dumpComponentKeys()`
-  prints them per biome for a given build; ids far above the vanilla range (60000 and up) are safe for a
-  mod's own component data, since the engine never looks them up.
-- `/locate biome <custom name>` works: the command's biome enum is built once by
-  `MinecraftCommands::initCoreEnums`, so `BiomeRegistry` appends the registered names with the engine's own
-  `_addEnumValuesInternal` once the server is up (`ll::service::getCommandRegistry()`, no hook needed). The biome id the command compares against is
-  written by ModAPI, too - `BiomeRegistry::_register` leaves that field unset.
-- The biome test ships the client side of its biomes as a `RuntimePack` resource pack (`biomes_client.json`
-  with per-biome water/fog colours and one fog file each), installed while the mod loads so the pack stack a
-  joining client is offered contains it.
-- `src-test`: a biome that exists only in C++ (no behaviour pack) and a surface builder that is code;
-  verified in game with `/locate biome` and by the builder being called during chunk generation.
-- Surface builder writes reach the chunk: `PerColumnParameters::mBlocks` is the chunk's staging volume,
-  indexed y-first (`index = localY + mHeight * (localZ + localX * mDepth)`, `localY = worldY - mDimensionBottom`),
-  exactly as the engine's own `BlockVolumeTarget::setBlock` writes it; the engine commits the volume after the
-  builder returns. The engine also builds neighbour chunks for context and drops them again, so the test marks
-  one column per chunk and reads back the first marker whose chunk the level still holds
-  (`surfaceBuilder.readBack`) - a discarded chunk reads as air and says nothing about the write.
-
-- `modapi::block::BlockProperty`, built from the engine's own types (`BlockComponentGroupDescription`,
-  `BlockDescription`, `BlockPermutationDescription`) and handed over with the registration:
-  `registerBlock<MyBlock>("ns:name", { .mArguments = {...}, .mProperty = {...} })`. The same property drives both
-  sides - its components are injected into the running block type, and serialised for a client - and it carries the
-  block's states and permutations with it.
-- `modapi::item::ICustomItem<T>` is a template over the engine base an item stands for (`::Item`, `::BlockItem`, ...),
-  with the hooks in a non-template `ICustomItemBase`. `ICustomFoodItem<T>` and `ICustomToolItem<T>` follow the same
-  shape.
-- `src-test`: one item of every kind is registered and looked up by name - plain, block, food, tool and armor.
-
 ### Changed
 
-- A block's client entry is written from its `BlockProperty`: components, tags, `menu_category` (through the
-  engine's own enum to name helper), `vanilla_block_data`, block states (`properties`) and permutations.
-- `_init` is no longer virtual, and the two item definition helpers are templates in the public include tree.
-- A feature and a feature rule are registered with one structure, the way a block is: a
-  `FeatureRegistration<>{ .mIdentifier, .mArguments }` and a `FeatureRuleRegistration<>{ .mIdentifier, .mArguments,
-  .mPasses }`. Rules moved to a registry of their own (`FeatureRuleRegistry`, with `FeatureRuleReadyEvent`) and
-  became a type - `ICustomFeatureRule`, whose `place(...)` yields the positions - instead of a `std::function`
-  callback; `FeatureRegistry::registerFeatureRule` and its `CustomFeatureRule` are gone.
-- The test's block texture is generated at runtime instead of shipping as a file.
+- Items now use `ICustomItem<T>`: components, `ItemDescription`, component builders and
+  `getComponentItem()` live on the item itself. Removed `ICustomItemBase`, `ICustomArmorItem`,
+  `ICustomBlockItem`, `ICustomFoodItem`, `ICustomToolItem`, `ItemInitializer`, `NetworkTagBuilder`
+  and the item setter methods.
+- Blocks now use `ICustomBlock<T>`: `BlockProperty` is private to the block, and
+  `components()`, `addComponent()` and the common component helpers live on the block. Removed
+  `BlockRegistration`, `mExtra` and the separate property parameter.
+- Every registry uses `builder<T>("id")...build()`: class entries use `ClassRegistration`, data
+  entries use `DataRegistration`; `DeferredRegister` no longer provides `operator*` / `operator->`.
+- Feature, feature rule, surface builder, biome, loot table, game rule and creative group entries use
+  the unified builder. Rule fields `placesFeature` / `passes` moved onto `ICustomFeatureRule`.
+- Recipes keep every `ICustom*Recipe` interface and expose the concrete `Custom*Recipe` classes as
+  directly constructible types, one header each. Normal and multi recipes no longer use
+  `RecipeRegistration` data tags.
+- `README` keeps usage and contracts only; implementation notes live in internal documentation.
 
 ### Removed
 
-- The JSON/document block registration path and everything that existed for it (`registerBlockFromMemoryJson`,
-  `deferBlockDocument`, `ICustomBlock`, `CustomBlockRegistry.h`, `setBlockTexture`).
-- `ICustomBlockItem::getIcon` - a block item's picture is the block - and the unused `BlockRegistry` scaffolding.
-- The per-item debug logging in the registries.
+- `ICustomLootTable`, `ICustomGameRule`, `ICustomItemBase`, `ICustomArmorItem`, `ICustomBlockItem`,
+  `ICustomFoodItem`, `ICustomToolItem`, `ItemProperty`, `BlockRegistration`, `FeatureRegistration`,
+  `FeatureRuleRegistration`, `SurfaceBuilderRegistration`, `RecipeRegistration`.
+- Empty `include/modapi/effect`, `include/modapi/entity` and `include/modapi/enchantment`
+  directories, and the `include/mc/world/item/crafting/ShapelessRecipe.h` mirror header.
+- `.clang-tidy-results.txt`, `.ida-mcp/`.
 
 ### Fixed
 
-- Custom block states and permutations now reach a client: the entry carries the `properties` node the engine writes,
-  which a permutation's condition needs in order to match.
+- Public headers no longer carry crash history, offsets or per-build research notes.
 
 ## [26.51.0] - 2026-09-22
 
@@ -181,7 +142,8 @@ Since `26.10.0` the version number tracks the supported LeviLamina release: `26.
 
 [#1]: http://github.com/GroupMountain/ModAPI-Release/issues/1
 
-[Unreleased]: http://github.com/GroupMountain/ModAPI-Release/compare/v26.40.0...HEAD
+[Unreleased]: http://github.com/GroupMountain/ModAPI-Release/compare/v26.51.0...HEAD
+[26.51.0]: http://github.com/GroupMountain/ModAPI-Release/compare/v26.40.0...v26.51.0
 [26.40.0]: http://github.com/GroupMountain/ModAPI-Release/compare/v26.20.0...v26.40.0
 [26.20.0]: http://github.com/GroupMountain/ModAPI-Release/compare/v26.10.0...v26.20.0
 [26.10.0]: http://github.com/GroupMountain/ModAPI-Release/compare/v0.4.0...v26.10.0

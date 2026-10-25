@@ -27,12 +27,9 @@ public:
 
     void addOnLoadTest(std::function<void()>&& func);
 
-    void addOnUnloadTest(std::function<void()>&& func);
-
 private:
     ll::mod::NativeMod&                mSelf;
     std::vector<std::function<void()>> mPendingOnLoadTests;
-    std::vector<std::function<void()>> mPendingOnUnloadTests;
 };
 
 ll::io::Logger& getLogger();

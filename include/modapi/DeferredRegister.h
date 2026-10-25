@@ -1,4 +1,5 @@
 #pragma once
+#include "modapi/Registration.h"
 #include "modapi/Registry.h"
 #include <concepts>
 #include <ll/api/event/EventBus.h>
@@ -16,9 +17,6 @@ namespace modapi {
 
 namespace detail {
 
-// Type erased registration request. The stored constructor arguments are re-used every time the
-// registry announces a registration pass, so the entry is rebuilt for each pass (the vanilla
-// registration points documented per registry can run more than once per process).
 template <Registry T, class Entry>
 class EntryInvoker {
 public:
@@ -28,35 +26,32 @@ public:
 };
 
 template <Registry T, class Entry, class... Args>
-class EntryInvokerImpl : public EntryInvoker<T, Entry> {
-    std::tuple<Args...> mArgs;
+class ClassEntryInvoker : public EntryInvoker<T, Entry> {
+    ClassRegistration<Entry, Args...> mRegistration;
 
 public:
-    explicit EntryInvokerImpl(Args... args) : mArgs(std::move(args)...) {}
+    explicit ClassEntryInvoker(ClassRegistration<Entry, Args...> registration)
+    : mRegistration(std::move(registration)) {}
 
     typename T::ProductRef invoke(T& registry) override {
-        return std::apply(
-            [&registry](auto&... args) ->
-            typename T::ProductRef { return registry.template registerEntry<Entry>(args...); },
-            mArgs
-        );
+        return registry.template registerEntry<Entry>(mRegistration);
     }
+};
+
+template <Registry T, class Entry>
+class DataEntryInvoker : public EntryInvoker<T, Entry> {
+    DataRegistration<Entry> mRegistration;
+
+public:
+    explicit DataEntryInvoker(DataRegistration<Entry> registration) : mRegistration(std::move(registration)) {}
+
+    typename T::ProductRef invoke(T& registry) override { return registry.registerEntry(mRegistration); }
 };
 
 } // namespace detail
 
-// Deferred registration of one user defined type into one registry.
-//
-// The constructor does two things: it stores the arguments used to build `Entry`, and it attaches a
-// listener for `T::EventType`. There is no retry and no state machine: whenever the registry
-// publishes its ready event, the entry is built from the stored arguments and registered, and the
-// produced object is kept for `get()`.
-//
-//   class MyItem : public modapi::ICustomItem { ... };
-//   static modapi::DeferredRegister<modapi::ItemRegistry, MyItem> gMyItem("mymod:my_item", 100);
-//
-// The object must be static/global and constructed before the first registration pass of `T`;
-// afterwards the ready event it waits for has already been published and it never runs.
+// Deferred registration of one entry into one registry. The registration object is stored and replayed
+// for every ready event, so it must be copyable. There is no retry and no state machine.
 template <Registry T, class Entry>
     requires RegistryEntry<T, Entry>
 class DeferredRegister {
@@ -67,30 +62,19 @@ public:
     using ProductRef = typename T::ProductRef;
     using EventType  = typename T::EventType;
 
-    // The arguments are stored and reused, so they have to be copyable.
     template <class... Args>
-        requires(std::copy_constructible<std::decay_t<Args>> && ...)
-    explicit DeferredRegister(Args&&... args)
+    explicit DeferredRegister(ClassRegistration<Entry, Args...> registration)
     : mState(
           std::make_shared<State>(
-              std::make_unique<detail::EntryInvokerImpl<T, Entry, std::decay_t<Args>...>>(std::forward<Args>(args)...)
+              std::make_unique<detail::ClassEntryInvoker<T, Entry, Args...>>(std::move(registration))
           )
       ) {
-        T::ensureEventRegistered();
-        auto& bus = ll::event::EventBus::getInstance();
-        mListener = bus.emplaceListener<EventType>([state = std::weak_ptr<State>(mState)](EventType& event) {
-            if (auto locked = state.lock()) locked->registerEntry(event.registry());
-        });
-        if (!mListener) {
-            logError("could not listen for the registry ready event (is the event registered?)");
-        }
-        // The ready event listener holds a lambda whose code lives in the module that built this
-        // object, so it must not stay in the bus after that module is unloaded. `ServerStoppingEvent`
-        // is the last moment at which both are still loaded, so the registration detaches itself
-        // there - long before the DLL teardown that a static destructor would run in.
-        mStopListener = bus.emplaceListener<ll::event::server::ServerStoppingEvent>(
-            [this](ll::event::server::ServerStoppingEvent&) { detach(); }
-        );
+        attach();
+    }
+
+    explicit DeferredRegister(DataRegistration<Entry> registration)
+    : mState(std::make_shared<State>(std::make_unique<detail::DataEntryInvoker<T, Entry>>(std::move(registration)))) {
+        attach();
     }
 
     ~DeferredRegister() {
@@ -100,8 +84,6 @@ public:
         }
     }
 
-    // Removes the listeners this object attached. Called by the destructor and when the server stops;
-    // doing it twice is harmless.
     void detach() {
         auto& bus = ll::event::EventBus::getInstance();
         if (mListener) {
@@ -119,21 +101,27 @@ public:
     DeferredRegister& operator=(DeferredRegister const&) = delete;
     DeferredRegister& operator=(DeferredRegister&&)      = delete;
 
-    // Whether the entry has been registered at least once.
     [[nodiscard]] bool isRegistered() const noexcept { return mState->mRegistered; }
 
-    // Whether the target registry is open (forwards to the registry's `isReady()`).
     [[nodiscard]] bool isReady() const noexcept { return T::getInstance().isReady(); }
 
-    // The object produced by the most recent registration. Empty until `isRegistered()`, and also
-    // empty for registrations that do not produce a single object (furnace and brewing recipes).
     [[nodiscard]] ProductRef get() const noexcept { return mState->mProduct; }
 
-    Product& operator*() const { return *get(); }
-
-    Product* operator->() const { return get().as_ptr(); }
-
 private:
+    void attach() {
+        T::ensureEventRegistered();
+        auto& bus = ll::event::EventBus::getInstance();
+        mListener = bus.emplaceListener<EventType>([state = std::weak_ptr<State>(mState)](EventType& event) {
+            if (auto locked = state.lock()) locked->registerEntry(event.registry());
+        });
+        if (!mListener) {
+            logError("could not listen for the registry ready event (is the event registered?)");
+        }
+        mStopListener = bus.emplaceListener<ll::event::server::ServerStoppingEvent>(
+            [this](ll::event::server::ServerStoppingEvent&) { detach(); }
+        );
+    }
+
     struct State {
         std::unique_ptr<detail::EntryInvoker<T, Entry>> mInvoker;
         ProductRef                                      mProduct{};
@@ -146,9 +134,7 @@ private:
             try {
                 mProduct    = mInvoker->invoke(registry);
                 mRegistered = true;
-            } catch (...) {
-                // A failing registration must not escape into the event publisher.
-            }
+            } catch (...) {}
         }
     };
 

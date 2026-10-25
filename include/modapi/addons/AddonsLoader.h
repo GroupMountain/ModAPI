@@ -18,7 +18,6 @@ public:
     MOD_API static AddonsLoader& getInstance();
 
     MOD_API void addCustomPackPath(std::filesystem::path const& path);
-    MOD_API void setCustomPackPath(ResourcePackRepository& repo, std::filesystem::path const& path, PackType type);
 };
 
 } // namespace modapi::inline addons

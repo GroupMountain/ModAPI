@@ -53,13 +53,12 @@ constexpr std::string_view TestFeatureId    = "modapi_test:test_feature";
 class TestItem : public modapi::ICustomItem<::Item> {
 public:
     TestItem(std::string const& identifier, int damage) : ICustomItem(identifier) {
-        mMaxDamage = static_cast<short>(damage);
-        // A creative category makes the item go through CreativeItemRegistry's deferred path.
-        mCreativeCategory = ::SharedTypes::CreativeItemCategory::Items;
-        mCreativeGroup    = "itemGroup.name.items";
+        this->mMaxDamage = static_cast<short>(damage);
+        icon("stick").damage(damage).tags({"modapi_test_tag"}).creativeCategory(
+            ::SharedTypes::v1_21_110::ItemCategory::CreativeItemCategory::Items
+        );
+        creativeGroup("itemGroup.name.items");
     }
-
-    modapi::ItemIcon getIcon() const override { return modapi::ItemIcon{"stick"}; }
 };
 
 class TestRecipe : public modapi::ICustomShapedRecipe {
@@ -79,16 +78,6 @@ public:
         result.reinit(std::string{TestItemName}, 1, 0);
         return result;
     }
-};
-
-class TestGameRule : public modapi::ICustomGameRule<int> {
-public:
-    std::string getIdentifier() const override { return std::string{TestGameRuleId}; }
-
-    int getDefaultValue() const override { return 7; }
-
-    // The test rules are not part of the world's settings.
-    bool shouleSaveToDisk() const override { return false; }
 };
 
 class TestFeature : public modapi::ICustomFeature {
@@ -113,29 +102,34 @@ public:
 // server (and therefore every registry) started.
 // ---------------------------------------------------------------------------------------------
 
-modapi::DeferredRegister<modapi::ItemRegistry, TestItem>         gItem{std::string{TestItemName}, 42};
-modapi::DeferredRegister<modapi::RecipeRegistry, TestRecipe>     gRecipe;
-modapi::DeferredRegister<modapi::GameRuleRegistry, TestGameRule> gGameRule;
+modapi::DeferredRegister<modapi::ItemRegistry, TestItem> gItem{
+    modapi::ItemRegistry::builder<TestItem>(std::string{TestItemName}).arguments(42).build()
+};
+modapi::DeferredRegister<modapi::RecipeRegistry, TestRecipe> gRecipe{
+    modapi::RecipeRegistry::builder<TestRecipe>("modapi_test:test_recipe").build()
+};
+modapi::DeferredRegister<modapi::GameRuleRegistry, modapi::GameRuleRegistration> gGameRule{
+    modapi::GameRuleRegistry::builder("modapi_test:test_rule")
+        .intDefault(7)
+        .shouldSaveToDisk(false)
+        .build()
+};
 // A rule places through the feature it belongs to; this one hands back the position it was called with, which is
 // what the rule path asserted before it became a class of its own.
 class TestRule : public modapi::worldgen::ICustomFeatureRule {
 public:
+    TestRule() { placesFeature(std::string{TestFeatureId}).passes({"surface_pass"}); }
+
     ll::coro::Generator<BlockPos> place(modapi::BlockHelper const&, BlockPos const& pos, Random&) override {
         co_yield pos;
     }
 };
 
 modapi::DeferredRegister<modapi::worldgen::FeatureRegistry, TestFeature> gFeature{
-    modapi::worldgen::FeatureRegistry::FeatureRegistration<>{.mIdentifier = std::string{TestFeatureId}}
+    modapi::worldgen::FeatureRegistry::builder<TestFeature>(std::string{TestFeatureId}).build()
 };
-// A rule for a pass the engine really runs, so the feature above is driven by world generation itself. It is a static
-// registration, so it takes part in the level that is configured while the mod loads.
 modapi::DeferredRegister<modapi::worldgen::FeatureRuleRegistry, TestRule> gRule{
-    modapi::worldgen::FeatureRuleRegistration<>{
-        .mIdentifier    = "modapi_test:test_rule",
-        .mPlacesFeature = std::string{TestFeatureId},
-        .mPasses        = {"surface_pass"}
-    }
+    modapi::worldgen::FeatureRuleRegistry::builder<TestRule>("modapi_test:test_rule").build()
 };
 
 // Recorded while the test mod loads: no registry may be open yet at that point.
@@ -200,8 +194,9 @@ bool gameRulesContain(std::string_view identifier) {
 // A shaped recipe in the shape `Recipes::_loadRecipe` expects (the value of `minecraft:recipe_shaped`).
 std::string makeJsonRecipe(std::string_view identifier) {
     return fmt::format(
-        R"({{"description":{{"identifier":"{}"}},"tags":["crafting_table"],"pattern":["X"],)"
-        R"("key":{{"X":{{"item":"minecraft:stick"}}}},"result":{{"item":"minecraft:stick","count":1}},"priority":50}})",
+        R"({{"format_version":"1.20.10","minecraft:recipe_shaped":{{"description":{{"identifier":"{}"}},"tags":["crafting_table"],)"
+        R"("pattern":["X"],"key":{{"X":{{"item":"minecraft:stick"}}}},)"
+        R"("result":{{"item":"minecraft:stick","count":1}},"priority":50}}}})",
         identifier
     );
 }
@@ -226,12 +221,8 @@ void testDeferredItem() {
         );
         report.isTrue("registry.hasItem", (bool)registry.getItem(TestItemName));
 
-        // The item has a creative category, so it also went through CreativeItemRegistry's queue.
+        // The item has a creative category, so the engine lists it from the item itself.
         report.isTrue("creativeReady", modapi::CreativeItemRegistry::getInstance().isReady());
-        report.isTrue(
-            "creative.hasItem",
-            !modapi::CreativeItemRegistry::getInstance().getCreativeItem(TestItemName).empty()
-        );
 
         // The ready event is registered and our listener is attached to it.
         report.isTrue(
@@ -293,7 +284,9 @@ void testPreconditions() {
         test::getLogger().info(
             "[REGISTRY] (the next ERR line is expected: constructing a DeferredRegister after the registry opened)"
         );
-        modapi::DeferredRegister<modapi::ItemRegistry, TestItem> late{"modapi_test:late_item", 1};
+        modapi::DeferredRegister<modapi::ItemRegistry, TestItem> late{
+            modapi::ItemRegistry::builder<TestItem>("modapi_test:late_item").arguments(1).build()
+        };
         report.isTrue("notRegistered", !late.isRegistered());
         report.isTrue("registryIsReady", late.isReady());
         report.isTrue("noProduct", !late.get().has_value());
@@ -325,7 +318,7 @@ void testPreconditions() {
 
         static_assert(modapi::RegistryEntry<modapi::ItemRegistry, TestItem>);
         static_assert(modapi::RegistryEntry<modapi::RecipeRegistry, TestRecipe>);
-        static_assert(modapi::RegistryEntry<modapi::GameRuleRegistry, TestGameRule>);
+        static_assert(modapi::RegistryEntry<modapi::GameRuleRegistry, modapi::GameRuleRegistration>);
         static_assert(modapi::RegistryEntry<modapi::worldgen::FeatureRegistry, TestFeature>);
         // Types that are not registry entries must not satisfy the contract.
         static_assert(!modapi::RegistryEntry<modapi::ItemRegistry, TestFeature>);
@@ -371,15 +364,22 @@ void testItemApi() {
     report.section("api.item", [] {
         auto& registry = modapi::ItemRegistry::getInstance();
 
-        // `_modifyItem` queues its callback; now that the registry is open
-        // the callback has to run, and it has to be able to register items.
-        bool modifyRan = false;
-        (void)registry._modifyItem([&modifyRan](modapi::ItemRegistry&) { modifyRan = true; });
-        report.isTrue("modifyItem.ran", modifyRan);
+        auto late = registry.registerEntry<TestItem>(
+            modapi::ItemRegistry::builder<TestItem>("modapi_test:api_item").arguments(3).build()
+        );
+        report.isTrue("registerEntry.product", late.has_value());
+        report.isTrue("registerEntry.findable", (bool)registry.getItem("modapi_test:api_item"));
 
-        auto late = registry.registerItem<TestItem>(std::string{"modapi_test:api_item"}, 3);
-        report.isTrue("registerItem.product", late.has_value());
-        report.isTrue("registerItem.findable", (bool)registry.getItem("modapi_test:api_item"));
+        auto item = registry.getItem(TestItemName);
+        report.isTrue("item.componentItem", item && item->isComponentBased() == false);
+        if (item) {
+            auto& custom = static_cast<TestItem&>(*item);
+            report.isTrue("item.componentItem.notNull", custom.getComponentItem() != nullptr);
+            report.isTrue("item.description.category", custom.creativeCategory()
+                                                          == ::SharedTypes::v1_21_110::ItemCategory::
+                                                                 CreativeItemCategory::Items);
+            report.isTrue("item.tags", custom.tags() == std::vector<std::string>{"modapi_test_tag"});
+        }
 
         int  visited = 0;
         bool sawTest = false;
@@ -403,9 +403,9 @@ void testItemApi() {
                 ::CommandItem value;
             };
             Candidate const candidates[] = {
-                {"mVersion 1",  ::CommandItem{{1, true, itemId}} },
-                {"mVersion -1", ::CommandItem{{-1, true, itemId}}},
-                {"mVersion 0",  ::CommandItem{{0, true, itemId}} },
+                {"mVersion 1",  ::CommandItem{{{1, true, itemId}}} },
+                {"mVersion -1", ::CommandItem{{{-1, true, itemId}}}},
+                {"mVersion 0",  ::CommandItem{{{0, true, itemId}}} },
             };
 
             for (auto const& candidate : candidates) {
@@ -426,29 +426,8 @@ void testItemApi() {
             }
         }
 
-        // A duplicate in a client's creative inventory shows up here first: count what the registry holds for
-        // this item. One entry is correct; two means something adds it twice.
-        {
-            auto const creative = modapi::CreativeItemRegistry::getInstance().getCreativeItem(TestItemName);
-            test::getLogger().info("[REGISTRY] creative entries for {}: {}", TestItemName, creative.size());
-            report.isTrue("creative.singleEntry", creative.size() == 1, fmt::format("entries {}", creative.size()));
-        }
-
         report.isTrue("getItem.vanilla", (bool)registry.getItem("minecraft:stick"));
         report.isTrue("getItem.missing", !(bool)registry.getItem("modapi_test:definitely_missing"));
-
-        report.isTrue("setIcon", registry.setIcon(TestItemName, "modapi_test_icon"));
-        report.isTrue("setDisplayName", registry.setDisplayName(TestItemName, "ModAPI Test Stick"));
-        report.isTrue("addTag", registry.addTag(TestItemName, "modapi_test_tag"));
-        report.isTrue("setFireResistant", registry.setFireResistant(TestItemName));
-        report.isTrue("setRepairItem", registry.setRepairItem(TestItemName, "minecraft:stick"));
-        report.isTrue("setIcon.unknownItem", !registry.setIcon("modapi_test:definitely_missing", "x"));
-
-        report.noThrow("networkTagInfo", [&] {
-            auto& tag          = registry.getAndModifyVanillaNetworkTagInfo(TestItemName);
-            tag["modapi_test"] = 1;
-            report.isTrue("networkTagInfo.mutated", tag.contains("modapi_test"));
-        });
     });
 }
 
@@ -456,48 +435,13 @@ void testCreativeApi() {
     report.section("api.creative", [] {
         auto& registry = modapi::CreativeItemRegistry::getInstance();
 
-        report.isTrue("getCreativeItem.vanilla", !registry.getCreativeItem("minecraft:stick").empty());
-        report.isTrue("getCreativeItem.missing", registry.getCreativeItem("modapi_test:definitely_missing").empty());
-
-        // An existing group is looked up, a new one is created; neither may throw.
         report.noThrow("group.existing", [&] { (void)registry.registerCreativeGroup("itemGroup.name.items"); });
-        report.noThrow("group.new", [&] { (void)registry.registerCreativeGroup("modapi_test_group"); });
-
-        ::ItemInstance item;
-        item.reinit(std::string{TestItemName}, 1, 0);
-        modapi::CreativeItemRegistry::ProductRef added;
-        report.noThrow("registerCreativeItem", [&] {
-            added = registry.registerCreativeItem(
-                std::move(item),
-                ::SharedTypes::CreativeItemCategory::Items,
-                "modapi_test_group"
-            );
+        report.noThrow("group.new", [&] {
+            auto registration = modapi::CreativeItemRegistry::builder("modapi_test_group")
+                                    .category(::SharedTypes::CreativeItemCategory::Items)
+                                    .build();
+            (void)registry.registerEntry(registration);
         });
-        report.isTrue("registerCreativeItem.product", added.has_value());
-
-        auto inGroup = registry.getCreativeItem(TestItemName);
-        report.isTrue("registerCreativeItem.findable", !inGroup.empty());
-        if (!inGroup.empty()) {
-            report.eq("registerCreativeItem.group", "modapi_test_group", inGroup.back().mGroup);
-        } else {
-            report.skip("registerCreativeItem.group");
-            return;
-        }
-
-        // Removing the entry we just added, then putting it back so the item stays registered.
-        auto const removed = inGroup.back();
-        report.isTrue("unregisterCreativeItem", registry.unregisterCreativeItem(removed));
-        report.isTrue(
-            "unregisterCreativeItem.gone",
-            registry.getCreativeItem(TestItemName).size() == inGroup.size() - 1
-        );
-
-        ::ItemInstance restored;
-        restored.reinit(std::string{TestItemName}, 1, 0);
-        report.isTrue(
-            "reRegister",
-            registry.registerCreativeItem(std::move(restored), ::SharedTypes::CreativeItemCategory::Items).has_value()
-        );
     });
 }
 
@@ -517,10 +461,11 @@ void testRecipeApi() {
 
         // Shapeless: a real product, findable in the live Recipes instance.
         auto const beforeTotal = countRecipes();
-        auto       shapeless   = registry.registerShapelessRecipe(
-            "modapi_test:api_shapeless",
-            std::vector<modapi::ICustomRecipe::Ingredient>{stick},
-            makeStone()
+        auto shapeless = registry.registerEntry<modapi::recipe::CustomShapelessRecipe>(
+            modapi::RecipeRegistry::builder<modapi::recipe::CustomShapelessRecipe>("modapi_test:api_shapeless")
+                .ingredients(std::vector<modapi::ICustomRecipe::Ingredient>{stick})
+                .result(makeStone())
+                .build()
         );
         report.isTrue("shapeless.product", shapeless.has_value());
         report.isTrue("shapeless.findable", recipesContain("modapi_test:api_shapeless"));
@@ -531,10 +476,41 @@ void testRecipeApi() {
         );
 
         // Stone cutter: a real product as well.
-        auto stoneCutter =
-            registry.registerStoneCutterRecipe("modapi_test:api_stonecutter", stoneIngredient, makeStone());
+        auto stoneCutter = registry.registerEntry<modapi::recipe::CustomStoneCutterRecipe>(
+            modapi::RecipeRegistry::builder<modapi::recipe::CustomStoneCutterRecipe>("modapi_test:api_stonecutter")
+                .ingredient(stoneIngredient)
+                .result(makeStone())
+                .build()
+        );
         report.isTrue("stoneCutter.product", stoneCutter.has_value());
         report.isTrue("stoneCutter.findable", recipesContain("modapi_test:api_stonecutter"));
+
+        auto shaped = registry.registerEntry<modapi::recipe::CustomShapedRecipe>(
+            modapi::RecipeRegistry::builder<modapi::recipe::CustomShapedRecipe>("modapi_test:api_shaped")
+                .shape({"X"})
+                .ingredients({{"X", stick}})
+                .result(makeStone())
+                .build()
+        );
+        report.isTrue("shaped.product", shaped.has_value());
+        report.isTrue("shaped.findable", recipesContain("modapi_test:api_shaped"));
+
+        auto multi = registry.registerEntry<modapi::recipe::CustomShapedMultiRecipe>(
+            modapi::RecipeRegistry::builder<modapi::recipe::CustomShapedMultiRecipe>("modapi_test:api_multi")
+                .shape({"X"})
+                .ingredients({{"X", stick}})
+                .result(makeStone())
+                .callback([](modapi::recipe::ICustomShapedMultiRecipe::CraftingContainerInput const&, ::ItemInstance&) {})
+                .build()
+        );
+        report.isTrue("multi.product", multi.has_value());
+        report.isTrue("multi.findable", recipesContain("modapi_test:api_multi"));
+
+        auto jsonRecipe = modapi::RecipeRegistry::builder<modapi::recipe::CustomJsonRecipe>("modapi_test:api_json")
+                              .json(makeJsonRecipe("modapi_test:api_json"))
+                              .build();
+        report.eq("jsonRecipe.identifier", "modapi_test:api_json", jsonRecipe.mIdentifier);
+        report.isTrue("jsonRecipe.argument", !std::get<0>(jsonRecipe.mArguments).empty());
 
         // Furnace and brewing recipes are not `Recipe` instances, so they have no product - a
         // furnace recipe lands in its own table (keyed by input item id and aux value) instead.
@@ -550,7 +526,13 @@ void testRecipeApi() {
             keysBefore.push_back(id);
         }
 
-        auto furnace = registry.registerFurnaceRecipe(furnaceIngredient, makeStone(), {"modapi_test_furnace"});
+        auto furnace = registry.registerEntry<modapi::recipe::CustomFurnaceRecipe>(
+            modapi::RecipeRegistry::builder<modapi::recipe::CustomFurnaceRecipe>("modapi_test:api_furnace")
+                .ingredient(furnaceIngredient)
+                .result(makeStone())
+                .tags({"modapi_test_furnace"})
+                .build()
+        );
         report.isTrue("furnace.noProduct", !furnace.has_value());
 
         auto const& after    = *ll::service::getLevel()->getRecipes().mFurnaceResults;
@@ -575,7 +557,13 @@ void testRecipeApi() {
         }
 
         report.noThrow("brewing", [&] {
-            auto brewing = registry.registerBrewingRecipe(stick, stick, stick);
+            auto brewing = registry.registerEntry<modapi::recipe::CustomBrewingRecipe>(
+                modapi::RecipeRegistry::builder<modapi::recipe::CustomBrewingRecipe>("modapi_test:api_brewing")
+                    .input(stick)
+                    .reagent(stick)
+                    .output(stick)
+                    .build()
+            );
             report.isTrue("brewing.noProduct", !brewing.has_value());
         });
 
@@ -610,12 +598,18 @@ void testGameRuleApi() {
     report.section("api.gameRule.register", [] {
         auto& registry = modapi::GameRuleRegistry::getInstance();
 
-        // `shouleSaveToDisk = false` keeps the test rules out of the world's settings.
-        auto boolean = registry.registerGameRuleBool("modapi_test:api_bool", true, false, false);
+        // `shouldSaveToDisk(false)` keeps the test rules out of the world's settings.
+        auto boolean = registry.registerEntry(
+            modapi::GameRuleRegistry::builder("modapi_test:api_bool").boolDefault(true).shouldSaveToDisk(false).build()
+        );
         report.isTrue("bool.product", boolean.has_value());
-        auto integer = registry.registerGameRuleInt("modapi_test:api_int", 11, false, false);
+        auto integer = registry.registerEntry(
+            modapi::GameRuleRegistry::builder("modapi_test:api_int").intDefault(11).shouldSaveToDisk(false).build()
+        );
         report.isTrue("int.product", integer.has_value());
-        auto number = registry.registerGameRuleFloat("modapi_test:api_float", 1.5f, false, false);
+        auto number = registry.registerEntry(
+            modapi::GameRuleRegistry::builder("modapi_test:api_float").floatDefault(1.5f).shouldSaveToDisk(false).build()
+        );
         report.isTrue("float.product", number.has_value());
     });
 
@@ -674,7 +668,9 @@ void testFeatureApi() {
         report.isTrue("deferred.sameObject", objectAt(TestFeatureId) == gFeature.get().as_ptr());
 
         // A single shot registration now that the registry is open.
-        auto single = registry.registerFeature("modapi_test:api_feature", std::make_unique<TestFeature>());
+        auto single = registry.registerEntry<TestFeature>(
+            modapi::worldgen::FeatureRegistry::builder<TestFeature>("modapi_test:api_feature").build()
+        );
         report.isTrue("registerFeature.product", single.has_value());
         report.isTrue("registerFeature.inLevelRegistry", objectAt("modapi_test:api_feature") != nullptr);
         report.isTrue("registerFeature.sameObject", objectAt("modapi_test:api_feature") == single.as_ptr());
@@ -683,10 +679,7 @@ void testFeatureApi() {
         // constructor arguments and the passes. There is no product outside a feature pass, but the rule is
         // remembered for the levels configured later.
         auto rule = modapi::worldgen::FeatureRuleRegistry::getInstance().registerEntry<TestRule>(
-            modapi::worldgen::FeatureRuleRegistration<>{
-                .mIdentifier = "modapi_test:api_rule_feature",
-                .mPasses     = {"modapi_test_pass"}
-            }
+            modapi::worldgen::FeatureRuleRegistry::builder<TestRule>("modapi_test:api_rule_feature").build()
         );
         report.isTrue("registerFeatureRule.product", rule.has_value());
         // The rule's feature is rebuilt for the levels configured *after* the rule was added, so it
@@ -697,9 +690,6 @@ void testFeatureApi() {
 
 void testDeferredExtras() {
     report.section("api.deferredRegister", [] {
-        // `operator*` / `operator->` reach the same product as `get()`.
-        report.isTrue("operatorStar", &*gItem == gItem.get().as_ptr());
-        report.isTrue("operatorArrow", gItem->getSerializedName() == TestItemName);
         report.isTrue("recipe.isRegistered", gRecipe.isRegistered());
         report.isTrue("gameRule.isRegistered", gGameRule.isRegistered());
         report.isTrue("feature.isRegistered", gFeature.isRegistered());
@@ -734,8 +724,7 @@ void testDeferredExtras() {
         auto const stopBefore = bus.getListenerCount<ll::event::server::ServerStoppingEvent>();
         {
             modapi::DeferredRegister<modapi::ItemRegistry, TestItem> temporary{
-                std::string{"modapi_test:temporary_item"},
-                1
+                modapi::ItemRegistry::builder<TestItem>("modapi_test:temporary_item").arguments(1).build()
             };
             report.isTrue(
                 "listener.readyAttached",

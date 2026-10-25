@@ -48,15 +48,10 @@ void registerAtLoad() {
 }
 
 // Registered as soon as the engine first looks a loot table up: `DeferredRegister` waits for
-// `LootTableReadyEvent`, which is the first moment `_init()` may run the engine's deserializer.
-class TestLootTable : public modapi::loot_table::ICustomLootTable {
-public:
-    std::unique_ptr<::LootTable> _init() override {
-        return modapi::LootTableRegistry::buildTable(std::string{TestEntryDir}, std::string{DiamondTable});
-    }
+// `LootTableReadyEvent`, which is the first moment the engine's deserializer may run.
+modapi::DeferredRegister<modapi::LootTableRegistry, modapi::loot_table::LootTableRegistration> gLootTable{
+    modapi::LootTableRegistry::builder(std::string{TestEntryDir}).json(std::string{DiamondTable}).build()
 };
-
-modapi::DeferredRegister<modapi::LootTableRegistry, TestLootTable> gLootTable{};
 
 // The engine's JSON parser only knows its built-in entry types (their dispatcher is internal to the
 // server build), so an entry with behaviour of its own is handed over in code instead.

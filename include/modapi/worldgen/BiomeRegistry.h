@@ -1,5 +1,6 @@
 #pragma once
 #include "modapi/Macros.h"
+#include "modapi/Registration.h"
 #include "modapi/Registry.h"
 #include <functional>
 #include <ll/api/event/Event.h>
@@ -29,9 +30,7 @@ namespace modapi::inline worldgen {
 
 class BiomeRegistry;
 
-// One cell of the overworld's multi-noise biome lattice. The engine stores the six dimensions as
-// fixed point (value x 10000) inside `ClimateParameters`; this is the same thing in normalized
-// floats, so [-1, 1] means "the whole axis".
+// One cell of the overworld's multi-noise biome lattice, in normalized floats; [-1, 1] spans an axis.
 struct BiomeClimate {
     float mTemperatureMin = -1.f, mTemperatureMax = 1.f;
     float mHumidityMin = -1.f, mHumidityMax = 1.f;
@@ -45,35 +44,16 @@ public:
     // Claims every cell. Combined with a biome that replaced a vanilla one, this is how a mod takes
     // over that biome's whole share of the world.
     MOD_NDAPI static BiomeClimate fullRange();
-
-    // The cells the engine's own underground biome pass uses: full range except depth [0.2, 0.8999].
-    MOD_NDAPI static BiomeClimate underground();
 };
 
-// What a biome registration carries. The biome's components (climate numbers, surface materials,
-// generation rules) cannot be created from a native mod - `BiomeComponentStorage::addComponent` and
-// `BiomeDefinitionData`'s constructors are not exported - so ModAPI only puts the biome into the
-// registry and gives it the two things that are reachable from C++: a climate cell (placement) and
-// a surface builder (what the terrain looks like).
+// A biome registration: the template supplies the engine components, plus a climate cell and a surface builder.
 struct BiomeProperty {
-    ::std::optional<::BiomeIdType> mId; // empty => ModAPI allocates one above 30000
+    ::std::optional<::BiomeIdType> mId; // empty => ModAPI allocates one at 30000 or above
 
-    // The biome whose definition ModAPI copies. Required: the engine's biome components cannot be
-    // created from a native mod, so an existing biome has to supply them.
-    //
-    // This is not the engine's `BiomeReplacement` (`minecraft:replace_biomes`): that one swaps
-    // biomes at runtime by noise, per dimension, through `ReplaceBiomesComponent`. This one only
-    // says where the components and, by default, the climate cells come from.
+    // The biome whose definition ModAPI copies. Required.
     ::std::string mTemplate;
 
-    // The engine's `::BiomeReplacement` (`minecraft:replace_biomes`), field for field: the biomes this
-    // one replaces, the dimension it does that in, and how much of them it takes.
-    //
-    // ModAPI applies it to the overworld's multi-noise lattice, which is the only part of the world
-    // the biome source is built from here: every lattice cell of a target biome is handed to this
-    // biome, so `mAmount` and `mNoiseFrequencyScale` can only be honoured at their default (the whole
-    // replacement, evenly). A registration that asks for a partial one is refused rather than
-    // silently registered as a full takeover.
+    // Replacement targets, dimension and amount. Partial replacements are refused.
     struct Replacement {
         // Empty means "the template's cells".
         ::std::vector<::std::string> mTargetBiomes;
@@ -82,20 +62,12 @@ struct BiomeProperty {
         float                        mNoiseFrequencyScale = 1.f;
     };
 
-    // Where the climate cells come from: replace another biome's cells, or claim cells of its own
-    // (ModAPI appends them to the overworld's lattice). Defaults to replacing the template's cells.
+    // Replacement or explicit climate cells.
     using Climate = ::std::variant<Replacement, BiomeClimate>;
 
     Climate mClimate{};
 
-    // One entry of the biome's component storage, filed under the key the engine assigned to that
-    // component's type. `mCreate` is called for every registration pass, so a replayed registration
-    // gets a fresh object instead of one shared by two biomes.
-    //
-    // The keys are handed out by the engine at start up and are not exported; `dumpComponentKeys()`
-    // prints them per biome, which is how the key of a component type is learned for a given build.
-    // Ids no engine component uses (any value far above the vanilla range, say 60000) are safe to
-    // take: the engine never looks them up, only ModAPI's own code reads them.
+    // One biome component. `mCreate` runs for every registration pass; use `dumpComponentKeys()` to learn a key.
     struct Component {
         ::Bedrock::typeid_t<void>                                  mKey;
         ::std::function<::std::unique_ptr<::BiomeComponentBase>()> mCreate;
@@ -103,8 +75,7 @@ struct BiomeProperty {
 
     ::std::vector<Component> mComponents;
 
-    // Either the preset the engine resolves on its own, or the name of a builder registered in
-    // `SurfaceBuilderRegistry`. A custom builder replaces the preset's behaviour for this biome.
+    // Preset or the name of a registered surface builder.
     enum class SurfacePreset : unsigned char {
         Overworld,
         Swamp,
@@ -115,22 +86,13 @@ struct BiomeProperty {
 
     Surface mSurface = SurfacePreset::Overworld;
 };
-// What to register: the identifier and the property. A biome has no user class to name - the engine
-// builds the `::Biome` by copying the template - so the registration itself is the entry type:
-//   DeferredRegister<BiomeRegistry, BiomeRegistration> gBiome{
-//       BiomeRegistration{
-//           .mIdentifier = "mymod:my_biome", .mProperty = {.mTemplate = "minecraft:plains"}
-//       }
-//   };
+// The data entry: identifier and property.
 struct BiomeRegistration {
     std::string   mIdentifier;
     BiomeProperty mProperty;
 };
 
-// Published after `VanillaBiomes::initBiomes` has run and before the engine closes the biome
-// registry, so entries registered in a listener still reach every client and every level. Behaviour
-// packs are loaded after this point; a biome that a pack defines is reached through
-// `getBiome`/`configureBiome` instead.
+// Published after vanilla initializes biomes and while the registry is still open.
 class BiomeReadyEvent final : public ll::event::Event {
     BiomeRegistry& mRegistry;
 
@@ -140,10 +102,7 @@ public:
     MOD_API BiomeRegistry& registry() const;
 };
 
-// Custom biomes: the registry entry is C++, the climate cell is C++, the surface is C++.
-//
-// Registration has to happen inside `BiomeReadyEvent`, which is ModAPI's name for "the vanilla biome
-// pass has finished and the registry is still open":
+// Register inside `BiomeReadyEvent`:
 //
 //   ll::event::EventBus::getInstance().emplaceListener<modapi::worldgen::BiomeReadyEvent>(
 //       [](auto& event) {
@@ -165,6 +124,8 @@ public:
     using EventType  = BiomeReadyEvent;
     using Product    = ::Biome;
     using ProductRef = optional_ref<::Biome>;
+    using Property   = BiomeProperty;
+    using DataEntry  = BiomeRegistration;
 
 public:
     BiomeRegistry();
@@ -184,11 +145,17 @@ public:
     template <class Entry>
     static constexpr bool isEntry = ::std::same_as<Entry, BiomeRegistration>;
 
+    static DataRegistrationBuilder<BiomeRegistry> builder(std::string identifier) {
+        return DataRegistrationBuilder<BiomeRegistry>{std::move(identifier)};
+    }
+
+    static BiomeRegistration makeDataEntry(std::string identifier, BiomeProperty property) {
+        return {std::move(identifier), std::move(property)};
+    }
+
     // What `DeferredRegister` calls; the registration is the entry.
-    template <class Entry>
-        requires isEntry<Entry>
-    ProductRef registerEntry(Entry registration) {
-        return registerBiome(registration.mIdentifier, ::std::move(registration.mProperty));
+    ProductRef registerEntry(DataRegistration<BiomeRegistration> registration) {
+        return registerBiome(registration.mEntry.mIdentifier, ::std::move(registration.mEntry.mProperty));
     }
 
     // Registers a new biome and applies `property`. The identifier has to be free: a name that
@@ -205,9 +172,7 @@ public:
     [[nodiscard]] MOD_NDAPI ProductRef getBiome(std::string_view identifier) const;
 
 
-    // The registry and the world registries arrive through different engine calls; the ready event
-    // is published once both are known. `IWorldRegistriesProvider` is the level's own interface
-    // (it is what hands ModAPI the block palette and the feature registry).
+    // Binds the level's registry and world registries; publishes the ready event once both are known.
     MOD_API void _bindRegistry(::BiomeRegistry& registry);
     MOD_API void _bindRegistries(::IWorldRegistriesProvider& registries);
 
@@ -216,21 +181,17 @@ public:
 
     MOD_NDAPI ProductRef _registerBiome(std::string_view identifier, BiomeProperty property);
 
-    // Logs every component the engine installed on every biome, with the `typeid_t` key the engine
-    // filed it under. The ids are handed out per process and are not exported, so this is the only
-    // way to learn the key of a component type.
+    // Prints every installed biome component and its key for this build.
     MOD_API static void dumpComponentKeys();
 
-    // Remembers what a registration asked for: the biome, its id, its climate cell and its surface
-    // builder.
+    // Remembers a registered biome, its id, climate cell and surface builder.
     MOD_NDAPI ProductRef
     _remember(std::string_view identifier, ::Biome& biome, unsigned short id, BiomeProperty property);
 
-    // Applies every remembered biome to the lattice the engine is building: takes over the cells of
-    // a replaced biome, then appends the ones a registration asked for itself.
+    // Applies remembered biomes to the lattice: replaced cells first, then claimed cells.
     MOD_API void _applyLattice(::std::vector<::BiomeNoiseTarget>& targets);
 
-    // Reports what the engine's tree kept of the lattice ModAPI handed it.
+    // Reports what the engine kept of the applied lattice.
     MOD_API void _inspectLattice(::ParameterList const& list);
 
     // Replaces the surface builder of a chunk's entries that belong to a remembered biome.

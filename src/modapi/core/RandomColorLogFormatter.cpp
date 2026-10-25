@@ -7,8 +7,7 @@
 
 namespace {
 
-// one truecolor escape per
-// character, and the text is returned unchanged when the console does not support ANSI colors.
+// One truecolor escape per character; the text is returned unchanged when the console does not support ANSI colors.
 std::string gradientText(std::string const& str, mce::Color const& start, mce::Color const& end) {
     if (str.empty() || !ll::sys_utils::isStdoutSupportAnsi()) return str;
 

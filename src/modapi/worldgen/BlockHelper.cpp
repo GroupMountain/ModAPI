@@ -1,5 +1,5 @@
 #include "modapi/worldgen/BlockHelper.h"
-#include "modapi/core/Gloabl.h"
+#include "modapi/core/Global.h"
 #include <mc/world/level/BlockSource.h>
 #include <mc/world/level/ChunkBlockPos.h>
 #include <mc/world/level/block/BlockChangeContext.h>

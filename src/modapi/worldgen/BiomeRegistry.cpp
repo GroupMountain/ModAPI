@@ -1,5 +1,5 @@
 #include "modapi/worldgen/BiomeRegistry.h"
-#include "modapi/core/Gloabl.h"
+#include "modapi/core/Global.h"
 #include "modapi/core/RegistryEvent.h"
 #include "modapi/worldgen/SurfaceBuilderRegistry.h"
 #include <array>
@@ -236,10 +236,7 @@ void BiomeRegistry::_tryPublishReady() {
 unsigned short BiomeRegistry::_allocateBiomeId() const {
     if (pImpl->mRegistry == nullptr) return 0;
 
-    // The engine's counter is the only authority here: it already accounts for the ids behaviour packs
-    // and other mods took (`mymod:test_biome` holds 30000, so the first one handed out was 30001), and
-    // every registration below advances it. `lookupById` cannot be used to double check - it answers
-    // for no id at all in this build, vanilla ones included.
+    // The engine's counter already accounts for ids taken by behaviour packs and other mods.
     auto next = static_cast<unsigned short>(pImpl->mRegistry->mNextCustomBiomeId);
     if (next < kFirstCustomBiomeId || next == 0xFFFF) return 0;
     return next;
@@ -549,13 +546,6 @@ void BiomeRegistry::_overrideSurfaceBuilders(::BiomeSurfaceSystem::SurfaceBuilde
 BiomeRegistry& BiomeReadyEvent::registry() const { return mRegistry; }
 
 BiomeClimate BiomeClimate::fullRange() { return {}; }
-
-BiomeClimate BiomeClimate::underground() {
-    BiomeClimate climate{};
-    climate.mDepthMin = 0.2f;
-    climate.mDepthMax = 0.8999f;
-    return climate;
-}
 
 } // namespace modapi::inline worldgen
 

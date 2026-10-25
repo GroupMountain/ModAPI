@@ -1,5 +1,5 @@
 #pragma once
-#include "modapi/core/Gloabl.h"
+#include "modapi/core/Global.h"
 #include <atomic>
 #include <concepts>
 #include <ll/api/event/Emitter.h>
