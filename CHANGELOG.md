@@ -15,6 +15,40 @@ Since `26.10.0` the version number tracks the supported LeviLamina release: `26.
 
 ### Added
 
+- `modapi::worldgen::BiomeRegistry`: custom biomes whose behaviour is C++. A registration names the
+  vanilla biome it is built from (the engine's biome components cannot be created from a native mod, so the
+  template is copied), optionally claims climate cells (`BiomeClimate`, normalised to [-1, 1];
+  `fullRange()` takes over a replaced biome's whole share of the world), and optionally names a surface
+  builder. Registration happens in `BiomeReadyEvent`, which fires while the engine's registry is still open.
+  `configureBiome` does the same for a biome that already exists - one a behaviour pack defined, or one
+  another mod registered.
+- `modapi::worldgen::SurfaceBuilderRegistry` with `modapi::worldgen::ICustomSurfaceBuilder` (in
+  `modapi/worldgen/base/`): surface builders written in C++.
+  A builder is registered once (in `SurfaceBuilderReadyEvent`) under a ModAPI allocated key - the engine's own
+  keys are 0..7 - and any number of biomes can name it. The engine only hands `SurfaceBuilderData` to
+  `isBestBuilder`, which cannot tell biomes apart, so ModAPI installs the builder per chunk for the biomes
+  that name it instead of taking part in that resolution.
+- `modapi::worldgen::BiomeProperty::mComponents`: engine biome components are installed into the biome's
+  `BiomeComponentStorage` at registration, each as a `{ Bedrock::typeid_t<void> key, factory }` pair. The
+  keys are handed out by the engine at start up and are not exported, so `BiomeRegistry::dumpComponentKeys()`
+  prints them per biome for a given build; ids far above the vanilla range (60000 and up) are safe for a
+  mod's own component data, since the engine never looks them up.
+- `/locate biome <custom name>` works: the command's biome enum is built once by
+  `MinecraftCommands::initCoreEnums`, so `BiomeRegistry` appends the registered names with the engine's own
+  `_addEnumValuesInternal` once the server is up (`ll::service::getCommandRegistry()`, no hook needed). The biome id the command compares against is
+  written by ModAPI, too - `BiomeRegistry::_register` leaves that field unset.
+- The biome test ships the client side of its biomes as a `RuntimePack` resource pack (`biomes_client.json`
+  with per-biome water/fog colours and one fog file each), installed while the mod loads so the pack stack a
+  joining client is offered contains it.
+- `src-test`: a biome that exists only in C++ (no behaviour pack) and a surface builder that is code;
+  verified in game with `/locate biome` and by the builder being called during chunk generation.
+- Surface builder writes reach the chunk: `PerColumnParameters::mBlocks` is the chunk's staging volume,
+  indexed y-first (`index = localY + mHeight * (localZ + localX * mDepth)`, `localY = worldY - mDimensionBottom`),
+  exactly as the engine's own `BlockVolumeTarget::setBlock` writes it; the engine commits the volume after the
+  builder returns. The engine also builds neighbour chunks for context and drops them again, so the test marks
+  one column per chunk and reads back the first marker whose chunk the level still holds
+  (`surfaceBuilder.readBack`) - a discarded chunk reads as air and says nothing about the write.
+
 - `modapi::block::BlockProperty`, built from the engine's own types (`BlockComponentGroupDescription`,
   `BlockDescription`, `BlockPermutationDescription`) and handed over with the registration:
   `registerBlock<MyBlock>("ns:name", { .mArguments = {...}, .mProperty = {...} })`. The same property drives both

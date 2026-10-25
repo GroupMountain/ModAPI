@@ -773,8 +773,8 @@ void installTestPacks() {
     // fixed what.
     modapi::addons::RuntimePack items{"modapi_test_items", "data"};
     // A block declared the same way, with nothing registered for it in C++: the engine is expected to create
-    // the block *and* its item itself, the way it does for any addon block. Comparing this against the block
-    // registered with `registerBlockFromMemoryJson` is what tells whether the C++ side has to exist at all.
+    // the block *and* its item itself, the way it does for any addon block. Comparing this against
+    // `modapi_test:cpp_only_block`, registered from C++ through ModAPI, is what tells what the C++ side adds.
     items.addFile(
         "blocks/modapi_test_pack_block.json",
         R"({"format_version":"1.21.0","minecraft:block":{)"

@@ -61,10 +61,10 @@ LL_TYPE_INSTANCE_HOOK(
     }
 }
 
-// A document ModAPI brought in as JSON is parsed by the engine, which stores the definition here and creates
-// the block type for it afterwards. Both are left to the engine: `VanillaItems::serverInitCreativeItemsCallback`
-// walks this same definition group to create each block's item and its creative entry, so a block whose type
-// ModAPI replaced ends up with no working item at all.
+// The engine creates a block's item while `VanillaItems::serverInitCreativeItemsCallback` walks this same
+// definition group, so a block that exists only as a definition gets its item from the engine - a block
+// registered from C++ needs an item of its own (`modapi::item::ICustomBlockItem`).
+//
 // The packet a client gets its blocks from. `writeWithSerializationMode` is the virtual every sending path goes
 // through (the same one the item definitions had to move to), and it runs before anything is serialized, so this
 // is the last moment at which a missing entry can still be added.

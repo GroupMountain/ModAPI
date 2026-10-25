@@ -32,7 +32,9 @@ class BlockRegistry;
 
 // What a client is told about a block, in the engine's own types.
 struct BlockProperty {
-    // Injected into the block type, and published under `components` (`mTags` becomes `blockTags`).
+    // Each description initialises itself into the block's component storage (`initializeComponentFromCode`,
+    // which is what makes it take effect on the server) and is serialised for a client under `components`
+    // (`mTags` becomes `blockTags`).
     ::BlockComponentGroupDescription mComponents;
     // Publishes `menu_category`, `vanilla_block_data` and `traits`.
     ::BlockDescription mDescription;
@@ -53,10 +55,11 @@ struct BlockRegistration {
 
 
 // Published once a level has loaded its block definitions, i.e. after vanilla and every behaviour pack
-// registered theirs. That is the moment a custom block type is registered: early enough that a block item
-// items), that the registry still builds block states (`BlockTypeRegistry::prepareBlocks`) and that the
-// properties clients are told about (`BlockDefinitionGroup::generateServerBlockProperties`, which
-// `StartGamePacket` calls) include the block.
+// registered theirs. That is the moment a custom block type is registered, and it is early enough that:
+//
+//   - a block item still finds its block while the engine builds items,
+//   - `BlockTypeRegistry::prepareBlocks` still builds the block's states,
+//   - `StartGamePacket` collects the properties a client is told about after this point, so the block is in them.
 class BlockReadyEvent final : public ll::event::Event {
     BlockRegistry& mRegistry;
 
@@ -66,7 +69,7 @@ public:
     MOD_API BlockRegistry& registry() const;
 };
 
-// Custom blocks: **the behaviour is C++, the definition is JSON**.
+// Custom blocks: the behaviour is C++, and so is what a client is told about them.
 //
 // The behaviour: the mod derives from `::BlockType` itself and ModAPI registers that type
 // with the engine, exactly like vanilla gives every block its own subclass:
@@ -76,29 +79,25 @@ public:
 //       MyBlock(std::string const& identifier, int id, ::Material const& material)
 //       : ::BlockType(identifier, id, material) {}
 //   };
-//   static modapi::DeferredRegister<modapi::BlockRegistry, MyBlock> gMyBlock{std::string{"mymod:my_block"}};
+//   static modapi::DeferredRegister<modapi::BlockRegistry, MyBlock> gMyBlock{
+//       std::string{"mymod:my_block"},
+//       modapi::BlockRegistration<>{{}, modapi::BlockProperty{/* ... */}}
+//   };
 //
 // `BlockTypeRegistry::registerBlock<MyBlock>` constructs the type with `(identifier, id, ...)` and takes
 // ownership of it, so a mod's constructor receives the id ModAPI allocated; ids come from the level's
 // `BlockDefinitionGroup::mLastBlockId`, whose counter starts above the vanilla ids (10001 in the build this
 // was written against).
 //
-// The definition (what a client parses: `minecraft:material_instances`, geometry, ...) is an addon style
-// document handed over with `registerBlockFromMemoryJson`:
+// The definition a client parses - `minecraft:material_instances`, the menu category, states, permutations -
+// is described by the `BlockProperty` the registration carries, and no document is involved: the property is
+// made of the engine's own types, `_applyBlockProperty` gives it to the running block and
+// `_publishClientProperties` gives it to a client. Textures, models and sound still come from the mod's own
+// resource pack.
 //
-//   modapi::block::registerBlockFromMemoryJson(R"({
-//     "format_version": "1.21.0",
-//     "minecraft:block": {
-//       "description": { "identifier": "mymod:my_block" },
-//       "components": { "minecraft:material_instances": { "*": { "texture": "my_tex" } } }
-//     }
-//   })");
-//
-// That document is shipped as a behaviour pack through `modapi::addons::RuntimePack`, so the engine parses it
-// itself while a level loads its block definitions - call it while mods load, not from `BlockReadyEvent`.
-// On its own the engine would then also register a block *type* for that name, which collides with the C++
-// new object, after which the two sides disagree); ModAPI suppresses that step for the documents it knows and
-// keeps the parsed definition, so the C++ type is the one the engine uses and clients get the JSON.
+// A name that already belongs to a block - registered as a type, or defined by a behaviour pack ModAPI does not
+// own - is refused rather than registered on top of: the engine keeps the first one, which would leave the mod
+// holding an object that is not its block.
 // True for the registration a mod hands over: how to build the block plus what to tell a client about it.
 template <class T>
 struct IsBlockRegistration : ::std::false_type {};
@@ -145,9 +144,9 @@ public:
     //
     // `BlockProperty` is made of the engine's own types, and the same property drives both sides: its components are
     // injected into the running block type (`initializeComponentFromCode`, the way vanilla registers its own blocks)
-    // and serialised for a client (`isNetworkComponent` + `getName` + `buildNetworkTag`) - the pair of calls the
-    // engine's own `generateServerBlockProperties` makes. A block registered without a property still gets an entry,
-    // built from defaults.
+    // and serialised for a client - only the networked components, under their own names (`isNetworkComponent`,
+    // `getName`, `buildNetworkTag`), which is what `_publishClientProperties` writes. A block registered without a
+    // property still gets an entry, built from defaults.
     // ---------------------------------------------------------------------------------------------
     // Builds `Entry` under `identifier`, applies `registration.mProperty` to it, and remembers both. `identifier`
     // and the block id are ModAPI's to supply, so `mArguments` are only the extra constructor arguments.
@@ -158,9 +157,6 @@ public:
             .template _registerBlockWith<Entry>(identifier, std::move(property), std::move(registration.mArguments));
     }
 
-    // Builds `Entry` under an identifier ModAPI is given directly. A document deferred for that identifier is
-    // installed first, which is what makes the engine (and a client) know the block while `Entry` stays the type
-    // that runs; without one the engine knows nothing about this block.
     // Builds `Entry` under an identifier ModAPI is given directly; `DeferredRegister` goes through here. The single
     // argument may be a `BlockRegistration`, whose arguments go to the constructor and whose property is applied;
     // without one the block is registered with a default property.
@@ -219,27 +215,15 @@ public:
     MOD_API void _applyBlockProperty(::BlockType& block, BlockProperty const& property);
     MOD_API void _storeBlockProperty(std::string const& identifier, BlockProperty property);
 
-    // Installs a block document as the packs the engine reads it from, and answers the identifier it declares
-    // (empty when the document could not be read or installed). `ownType` says whether ModAPI takes the block type
-    // over from the engine - true when a C++ class is registered for it, false when the engine's own type is the
-    // one wanted, which is what makes the engine build the block's item as well.
-
-    // Installs the document deferred for `identifier`, if there is one, and forgets it.
-
     // Adds an entry to the properties a client is told about for every block ModAPI registered itself, when the
     // engine did not produce one for it. The engine builds that list in `StartGamePacketPayload` out of the block
-    // definition group, so a block whose type ModAPI created and which has no document behind it gets no entry -
-    // and a client that is not told about a block does not know it. Called from the packet's write path, before
-    // anything of the packet has been serialized.
+    // definition group, so a block whose type ModAPI created gets no entry of its own - and a client that is not
+    // told about a block does not know it. Called from the packet's write path, before anything of the packet has
+    // been serialized.
     MOD_API void _publishClientProperties(::std::vector<::ServerBlockProperty>& properties);
 
     // The block type registered under `identifier`, or nothing.
     [[nodiscard]] MOD_NDAPI ProductRef getBlock(std::string const& identifier) const;
-
-    // The texture the block's own document declares (`minecraft:material_instances."*".texture`), remembered when
-    // the document is registered. This is what a block item's icon is derived from, so a mod never names it.
-
-    // Remembers that texture (called while a document is installed).
 
     // The level whose definitions were loaded, and the group they live in.
     [[nodiscard]] MOD_NDAPI ::Level*                level() const noexcept;

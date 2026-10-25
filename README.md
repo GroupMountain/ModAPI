@@ -169,6 +169,162 @@ static modapi::DeferredRegister<modapi::worldgen::FeatureRuleRegistry, MyRule> g
 
 `mPasses` 为空表示参与该 level 配置的全部 pass；规则在特征的注册时机之后注册，因此可以引用已注册的特征。
 
+## 生物群系与地表构建器
+
+群系的行为用 C++ 写：注册表条目、气候格、地表构建器都是代码。客户端看到的样子（贴图、语言文件）照旧通过
+`RuntimePack` 提供，两者互不影响。
+
+### 地表构建器（`SurfaceBuilderRegistry`）
+
+一个构建器只实现 `buildSurfaceAt`，其余成员 `ICustomSurfaceBuilder` 已经给好（全部 inline，派生类不需要 ModAPI 的
+任何符号）：
+
+```cpp
+class MySurface : public modapi::worldgen::ICustomSurfaceBuilder {
+public:
+    void buildSurfaceAt(
+        ::ISurfaceBuilder::GlobalParameters const&,
+        ::ISurfaceBuilder::SurfaceBuilderParameters const&,
+        ::ISurfaceBuilder::PerColumnParameters const&      column
+    ) const override {
+        auto& volume = column.mBlocks;      // ::BlockVolume& —— 整个区块的暂存区，16 x 320 x 16
+        auto  height = static_cast<size_t>(volume.mHeight);
+        auto  depth  = static_cast<size_t>(volume.mDepth);
+        auto  bottom = static_cast<int>(volume.mDimensionBottom); // 局部 y = 0 对应的世界 y
+
+        auto& heights = *column.mPreWorldGenHeightmap.mData;      // 每列的地表高度（世界 y）
+        auto  slot    = static_cast<size_t>((column.mPos.z & 15) * 16 + (column.mPos.x & 15));
+        auto  top     = static_cast<int>(heights[slot]);
+
+        auto localX = static_cast<size_t>(column.mPos.x & 15);
+        auto localZ = static_cast<size_t>(column.mPos.z & 15);
+        auto localY = static_cast<size_t>(top - bottom);
+        auto index  = localY + height * (localZ + localX * depth); // y 变化最快
+
+        volume.mBlocks.get().mBegin[index] = &someBlock;          // ::Block const*
+    }
+};
+```
+
+写入路径（引擎自己的 `BlockVolumeTarget::setBlock` 就是这么写的，`src-test/BiomeTest.cpp` 已实测到区块）：
+
+- 索引是 `localY + mHeight * (localZ + localX * mDepth)`：**y 变化最快**，其次 z，最后 x；三项都取局部坐标，
+  `localY = 世界 y - mDimensionBottom`。
+- `mPos` 的 `y` 恒为 0，列坐标只有 `x`/`z` 有意义；`mPreWorldGenHeightmap` 是每列的地表高度（世界 y）。
+- `mBlocks` 是**提交前的暂存区**：构建器返回后引擎把它写进区块，所以在构建器里读它没有意义，也不必自己提交。
+- 引擎也会为**只做上下文**的邻居区块调用构建器，那些区块生成完就被丢掉，写入不会落盘。因此事后验证只能看
+  `getExistingChunk` 返回非空、且底层方块已经生成的区块；`src-test/BiomeTest.cpp` 为每个区块记一个标记，再逐个试。
+
+注册在 `SurfaceBuilderReadyEvent` 里——引擎的原版构建器已经就位、任何区块还没开始生成：
+
+```cpp
+ll::event::EventBus::getInstance().emplaceListener<modapi::worldgen::SurfaceBuilderReadyEvent>(
+    [](auto& event) {
+        event.registry().registerBuilder("mymod:my_surface", std::make_unique<MySurface>());
+    }
+);
+```
+
+- 引擎用 `isBestBuilder` 挑选构建器，而它只看得到 `SurfaceBuilderData`、分不清是哪个群系；因此
+  `ICustomSurfaceBuilder::isBestBuilder` 恒为 `false`，永远不会参与这套挑选。ModAPI 改为在
+  `buildChunkSurface` 之前按群系把注册的构建器装进去，只影响点名引用它的群系。
+- 引擎的构建器表按 `SurfaceBuilderType` 编号，原版占用 `0..7`，ModAPI 从 `100` 起分配。
+- 一个构建器可以被任意多个群系引用；名字重复的注册会被拒绝（引擎对同一个键保留先到的）。
+
+### 群系（`BiomeRegistry`）
+
+```cpp
+static modapi::DeferredRegister<modapi::worldgen::BiomeRegistry, modapi::worldgen::BiomeRegistration> gMyBiome{
+    modapi::worldgen::BiomeRegistration{
+        .mIdentifier = "mymod:my_biome",
+        .mProperty   = {
+            .mTemplate = "minecraft:plains",                       // 必填：拿这个群系当模板
+            .mClimate  = modapi::worldgen::BiomeProperty::Replacement{},   // 默认：接管模板的气候格
+            .mSurface  = std::string{"mymod:my_surface"},          // 也可以是 SurfacePreset
+        },
+    }
+};
+```
+
+`mTemplate` 必填：群系的组件（气候、地表材料、生成规则）没有一项能从 native mod 构造，只能复制一个已有群系作为模板。它**不是**引擎的 `BiomeReplacement`（`minecraft:replace_biomes`，那套是运行时按噪声替换群系）。
+
+`mClimate` 是 `std::variant<Replacement, BiomeClimate>`：
+
+- `Replacement` 与引擎的 `::BiomeReplacement` 字段一致（`mTargetBiomes` / `mDimension` /
+  `mAmount` / `mNoiseFrequencyScale`），ModAPI 把它们映射到主世界多噪声格子上：目标群系的格子整份改判给本群系。
+  当前只支持**整份替换**（`mAmount = 1`、默认噪声频率、`minecraft:overworld`），其余取值会直接报错拒绝，而不是静默当成整份替换。
+- `BiomeClimate` 是自己的一格（归一化 `[-1, 1]`，内部换成引擎的定点数），由 ModAPI 追加进格子列表。
+
+### 组件（`BiomeProperty::mComponents`）
+
+引擎的群系组件存在 `BiomeComponentStorage` 里，按 `Bedrock::typeid_t<void>` 索引。这个 id 由引擎在静态初始化时分配，
+**不导出**，所以 ModAPI 无法替你猜一个。接口是把 key 和工厂一起交上来：
+
+```cpp
+struct MarkerComponent : ::BiomeComponentBase { int mValue = 42; };
+
+.mComponents = {
+    {
+        .mKey    = ::Bedrock::typeid_t<void>{60000},   // 见下：key 从哪来
+        .mCreate = [] { return std::make_unique<MarkerComponent>(); },
+    },
+},
+```
+
+- `mCreate` 在每次注册时调用，重放的注册会拿到新对象，不会被两个群系共享。
+- **引擎组件的 key**：`BiomeRegistry::dumpComponentKeys()` 会把每个群系现有的组件 key 全打出来（实测：`minecraft:plains`
+  是 `0, 42, 43, 44, 51, 45, 46, 52, 50, 68, 69, 70`）。拿你要的组件在某个原版群系上的 key，填进来即可；同一次 BDS
+  构建里 id 稳定。
+- **ModAPI 自有组件**：随便挑一个远高于原版范围的 id（例如 `60000`），引擎从不查它，只有你自己的代码读；测试就是这么验的
+  （`mymod:climate_biome` 的组件表末尾多出 `60000`）。
+- 注入后 `mAllowAddingComponents` 会被置为 `true`；`applySerializedDataToBiome` 先跑，所以模板带来的组件（地表构建器数据等）
+  仍在，自定义的追加在后面。
+
+**格子是按「参数空间大小」选的**：引擎的 RTree 在包含该点的所有叶子中挑参数空间最大的那个。原版格子已经把整个空间铺满，所以比原版窄的自定义格子永远不会被选中，`BiomeClimate::fullRange()` 这类更宽的格子才会赢（实测：全范围格子 4225/4225 全中）。想「只替换一部分」就要靠 `Replacement` 的选择性接管。
+
+**客户端外观**照旧走资源包：`modapi::addons::RuntimePack` 在模组加载时写包并交给引擎，客户端加入时就能拿到。
+自定义群系能配的是数据，不是代码：
+
+```
+biomes_client.json                 # 每个群系的 water_surface_color / water_fog_color / fog_identifier
+fogs/<name>.json                   # fog_identifier 指向的雾设置（air / water 的起止与颜色）
+```
+
+`src-test/BiomeTest.cpp` 的 `clientPack` 段就是这么做的：三个群系各配一套水色与雾，并断言包已写入、清单存在、
+`biomes_client.json` 里三个名字都在。
+
+### 进游戏怎么验（`src-test/BiomeTest.cpp` 的三个群系）
+
+1. **命令**：`/locate biome mymod:cpp_biome`、`/locate biome mymod:cpp_biome2`、
+   `/locate biome mymod:climate_biome` 各自返回**不同坐标**（`cpp_biome` 接管 plains、`cpp_biome2` 接管 forest、
+   `climate_biome` 接管 savanna）。修复前三个会返回同一个坐标——那说明枚举里的值不对。
+2. **站在里面**：`/tp` 到上面任一坐标，F3 的群系名显示对应的 `mymod:...`。
+3. **雾**：客户端资源包给三个群系各配了一套雾——`cpp_biome` 偏红、`cpp_biome2` 偏蓝、`climate_biome` 偏绿，
+   进出群系边界时空气雾会换色（`fogs/*.json` 里 air 的 fog_color，0.2–0.85 渲染距离）。
+4. **服务端日志**：新区块生成时打印 `surface #N pos=(x,0,z) top=... local=(...) slot=.../81920 wrote gold at (x,y,z)`；
+   `the /locate biome enum has 92 values` 是枚举被扩展的那一次。
+5. **测试套件**：`BIOME RESULT passed=... failed=0`，其中 `clientPack` 段确认资源包已写入、三个群系名都在
+   `biomes_client.json` 里；`engine` 段确认构建器被调用、且它写的方块能从事后的区块里读回来
+   （`surfaceBuilder.called` / `surfaceBuilder.readBack`）。
+
+`StoneSurfaceBuilder` 现在真的改地形：它在每列地表处写一个 `minecraft:gold_block`，几十 tick 后 `engine` 段从世界里
+读回来（`readback #13/22 at (2960,63,2960) -> minecraft:gold_block (HIT)`）。进游戏同样能验：
+`/execute if block <x> <y> <z> minecraft:gold_block run say HIT`；坐标所在的区块要在加载范围内，否则命令报
+`out of range`。`mPreWorldGenHeightmap` 给的是地表高度，金块落在该列的地表那一格。
+
+
+放置：主世界走接管/追加气候格；下界靠 `ReplaceBiomesComponent`；末地是固定群系源，目前不可用。
+
+`/locate biome <名字>` 对自定义群系可用。引擎的命令枚举是一次性快照（在 `MinecraftCommands::initCoreEnums` 里建好），
+所以 ModAPI 在服务器起来后从 `ll::service::getCommandRegistry()` 拿到注册表，用
+`CommandRegistry::_addEnumValuesInternal` 把名字补进同一个枚举。不能手改 `mEnumValues`/`values`——符号带编码位
+（`Symbol::toIndex()` 会掩掉高位），只塞字符串解析不了。
+
+另外，引擎的 `BiomeRegistry::_register` 只建对象、**不写 `mId`**（那块内存是分配器残留），而 `/locate` 用的正是这个字段，
+所以 `_registerBiome` 在注册后把它写成分配的 id；否则所有自定义群系会共享同一个残值、`/locate` 互相串。
+
+id：从 `30000` 起，以引擎的 `mNextCustomBiomeId` 为准并逐个推进，行为包已经占掉的 id 会被跳过（实测包占了 30000，第一个模组群系拿到 30001）。
+
 ## 战利品表（LootTableRegistry）
 
 模组注册的掉落表对整条取用链路可见：箱子内容、实体掉落与 `LootTableReference` 嵌套引用都能取到它；未注册的目录仍使用原版表。
